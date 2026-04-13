@@ -1,0 +1,518 @@
+Đúng rồi vro. Vậy mình sẽ chuyển bot sang kiểu:
+
+- khách bấm vào dịch vụ
+- **thêm vào giỏ hàng**
+- vào **🛒 Cart / Giỏ hàng**
+- rồi **thanh toán toàn bộ một lần**
+
+Cách này nhìn shop sẽ chuyên nghiệp hơn rất nhiều.
+
+---
+
+# 1) Cập nhật `db.py` để có giỏ hàng
+
+## Thêm import này ở đầu `db.py`
+```python
+from decimal import Decimal
+```
+
+---
+
+## Trong `init_db()` thêm table `cart_items`
+
+Dán đoạn này vào sau phần `settings`:
+
+```python
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS cart_items (
+            id SERIAL PRIMARY KEY,
+            telegram_id BIGINT NOT NULL,
+            service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE (telegram_id, service_id)
+        );
+        """)
+```
+
+---
+
+## Và thêm migration an toàn cho cart
+Dán thêm trong `init_db()`:
+
+```python
+        await conn.execute("ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS telegram_id BIGINT;")
+        await conn.execute("ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS service_id INTEGER;")
+        await conn.execute("ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();")
+```
+
+---
+
+## Thêm các hàm này vào cuối `db.py`
+
+```python
+async def add_to_cart(tg_id: int, service_id: int):
+    async with db_pool.acquire() as conn:
+        service = await conn.fetchrow("""
+            SELECT id FROM services
+            WHERE id = $1 AND active = TRUE
+        """, service_id)
+
+        if not service:
+            return False, "service_not_found"
+
+        exists = await conn.fetchrow("""
+            SELECT id FROM cart_items
+            WHERE telegram_id = $1 AND service_id = $2
+        """, tg_id, service_id)
+
+        if exists:
+            return False, "already_in_cart"
+
+        await conn.execute("""
+            INSERT INTO cart_items (telegram_id, service_id)
+            VALUES ($1, $2)
+        """, tg_id, service_id)
+
+        return True, "added_to_cart"
+
+
+async def get_cart_items(tg_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT c.service_id, c.created_at, s.title, s.price, s.badge
+            FROM cart_items c
+            JOIN services s ON s.id = c.service_id
+            WHERE c.telegram_id = $1 AND s.active = TRUE
+            ORDER BY c.id ASC
+        """, tg_id)
+
+
+async def remove_from_cart(tg_id: int, service_id: int):
+    async with db_pool.acquire() as conn:
+        result = await conn.execute("""
+            DELETE FROM cart_items
+            WHERE telegram_id = $1 AND service_id = $2
+        """, tg_id, service_id)
+        return result.endswith("1")
+
+
+async def clear_cart(tg_id: int):
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            DELETE FROM cart_items
+            WHERE telegram_id = $1
+        """, tg_id)
+
+
+async def get_cart_total(tg_id: int):
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT COALESCE(SUM(s.price), 0) AS total
+            FROM cart_items c
+            JOIN services s ON s.id = c.service_id
+            WHERE c.telegram_id = $1 AND s.active = TRUE
+        """, tg_id)
+        return float(row["total"]) if row else 0.0
+
+
+async def checkout_cart(tg_id: int):
+    async with db_pool.acquire() as conn:
+        async with conn.transaction():
+            user = await conn.fetchrow("""
+                SELECT * FROM users
+                WHERE telegram_id = $1
+                FOR UPDATE
+            """, tg_id)
+
+            if not user:
+                return False, "service_not_found"
+
+            items = await conn.fetch("""
+                SELECT c.service_id, s.title, s.price
+                FROM cart_items c
+                JOIN services s ON s.id = c.service_id
+                WHERE c.telegram_id = $1 AND s.active = TRUE
+                ORDER BY c.id ASC
+            """, tg_id)
+
+            if not items:
+                return False, "cart_empty"
+
+            total = sum((item["price"] for item in items), Decimal("0"))
+
+            if Decimal(str(user["balance"])) < total:
+                return False, "balance_not_enough"
+
+            await conn.execute("""
+                UPDATE users
+                SET balance = balance - $1,
+                    total_spent = total_spent + $1
+                WHERE telegram_id = $2
+            """, total, tg_id)
+
+            order_ids = []
+            titles = []
+
+            for item in items:
+                row = await conn.fetchrow("""
+                    INSERT INTO orders (telegram_id, service_id, price, status)
+                    VALUES ($1, $2, $3, 'paid')
+                    RETURNING id
+                """, tg_id, item["service_id"], item["price"])
+
+                order_ids.append(row["id"])
+                titles.append(item["title"])
+
+            await conn.execute("""
+                DELETE FROM cart_items
+                WHERE telegram_id = $1
+            """, tg_id)
+
+            return True, {
+                "count": len(items),
+                "total": float(total),
+                "order_ids": order_ids,
+                "titles": titles
+            }
+```
+
+---
+
+# 2) Sửa import trong `bot.py`
+
+Trong phần import từ `db`, thêm các hàm này:
+
+```python
+    add_to_cart,
+    get_cart_items,
+    remove_from_cart,
+    clear_cart,
+    get_cart_total,
+    checkout_cart,
+```
+
+Tức là block import sẽ thêm:
+
+```python
+from db import (
+    init_db,
+    get_or_create_user_from_tg,
+    get_user,
+    get_user_lang,
+    set_user_lang,
+    get_promo_text,
+    list_categories,
+    get_category,
+    list_featured_services,
+    list_services_by_category,
+    get_service,
+    create_order,
+    user_orders,
+    user_orders_count,
+    get_user_invoices,
+    get_invoice_by_order_id,
+    all_user_ids,
+    seed_sample_data,
+    add_category,
+    add_service,
+    set_featured,
+    set_balance,
+    set_promo_text,
+    list_services_admin,
+    add_to_cart,
+    get_cart_items,
+    remove_from_cart,
+    clear_cart,
+    get_cart_total,
+    checkout_cart,
+)
+```
+
+---
+
+# 3) Thêm text cho giỏ hàng trong `TRANSLATIONS`
+
+## Thêm vào `en`
+Dán các key này vào trong `"en": { ... }`
+
+```python
+        "btn_cart": "🛒 Cart",
+        "add_cart": "➕ Add to Cart",
+        "cart_title": "🛒 Your cart:\n\n",
+        "cart_empty": "Your cart is empty.",
+        "cart_line": "• {title} - {price:.2f} USDT\n",
+        "cart_total": "\n💵 Total: {total:.2f} USDT",
+        "cart_checkout": "✅ Checkout",
+        "cart_clear": "🗑 Clear Cart",
+        "cart_remove": "❌ Remove",
+        "added_to_cart": "✅ Added to cart.",
+        "already_in_cart": "This item is already in your cart.",
+        "removed_from_cart": "✅ Removed from cart.",
+        "checkout_success": (
+            "✅ Checkout successful\n\n"
+            "📦 Items: {count}\n"
+            "💵 Total: {total:.2f} USDT\n"
+            "🧾 Orders: {order_ids}\n\n"
+            "Admin will process your request soon."
+        ),
+```
+
+---
+
+## Thêm vào `zh`
+Dán các key này vào trong `"zh": { ... }`
+
+```python
+        "btn_cart": "🛒 购物车",
+        "add_cart": "➕ 加入购物车",
+        "cart_title": "🛒 您的购物车：\n\n",
+        "cart_empty": "您的购物车是空的。",
+        "cart_line": "• {title} - {price:.2f} USDT\n",
+        "cart_total": "\n💵 合计: {total:.2f} USDT",
+        "cart_checkout": "✅ 立即结算",
+        "cart_clear": "🗑 清空购物车",
+        "cart_remove": "❌ 删除",
+        "added_to_cart": "✅ 已加入购物车。",
+        "already_in_cart": "该商品已在购物车中。",
+        "removed_from_cart": "✅ 已从购物车移除。",
+        "checkout_success": (
+            "✅ 结算成功\n\n"
+            "📦 商品数量: {count}\n"
+            "💵 总金额: {total:.2f} USDT\n"
+            "🧾 订单号: {order_ids}\n\n"
+            "管理员会尽快处理您的需求。"
+        ),
+```
+
+---
+
+# 4) Sửa `main_menu()` để có nút giỏ hàng
+
+Thay `main_menu()` bằng bản này:
+
+```python
+def main_menu(lang: str):
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=t(lang, "btn_hot")), KeyboardButton(text=t(lang, "btn_catalog"))],
+            [KeyboardButton(text=t(lang, "btn_promo")), KeyboardButton(text=t(lang, "btn_topup"))],
+            [KeyboardButton(text=t(lang, "btn_balance")), KeyboardButton(text=t(lang, "btn_cart"))],
+            [KeyboardButton(text=t(lang, "btn_orders")), KeyboardButton(text=t(lang, "btn_invoice"))],
+            [KeyboardButton(text=t(lang, "btn_language")), KeyboardButton(text=t(lang, "btn_support"))],
+            [KeyboardButton(text=t(lang, "btn_channel")), KeyboardButton(text=t(lang, "btn_center"))],
+        ],
+        resize_keyboard=True
+    )
+```
+
+---
+
+# 5) Sửa nút trong chi tiết dịch vụ
+
+Trong `send_service_detail()`, thay keyboard thành:
+
+```python
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=t(lang, "add_cart"), callback_data=f"addcart:{service_id}")],
+            [InlineKeyboardButton(text=t(lang, "buy_now"), callback_data=f"buy:{service_id}")],
+            [InlineKeyboardButton(text=t(lang, "contact_support"), url=SUPPORT_LINK)],
+            [InlineKeyboardButton(text=t(lang, "back"), callback_data=f"cat:{row['category_id']}")],
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")],
+        ]
+    )
+```
+
+---
+
+# 6) Thêm hàm hiển thị giỏ hàng
+
+Dán vào phần `UI HELPERS` trong `bot.py`:
+
+```python
+async def send_cart(target, lang: str, tg_id: int):
+    rows = await get_cart_items(tg_id)
+    if not rows:
+        if isinstance(target, Message):
+            await target.answer(t(lang, "cart_empty"))
+        else:
+            await safe_edit(target, t(lang, "cart_empty"), reply_markup=back_to_menu_inline(lang))
+        return
+
+    text = t(lang, "cart_title")
+    for row in rows:
+        text += t(
+            lang,
+            "cart_line",
+            title=row["title"],
+            price=float(row["price"])
+        )
+
+    total = await get_cart_total(tg_id)
+    text += t(lang, "cart_total", total=total)
+
+    kb = InlineKeyboardBuilder()
+
+    for row in rows:
+        kb.button(
+            text=f"{t(lang, 'cart_remove')} {row['title'][:30]}",
+            callback_data=f"cart_remove:{row['service_id']}"
+        )
+
+    kb.button(text=t(lang, "cart_checkout"), callback_data="cart_checkout")
+    kb.button(text=t(lang, "cart_clear"), callback_data="cart_clear")
+    kb.button(text=t(lang, "back_menu"), callback_data="menu")
+    kb.adjust(1)
+
+    if isinstance(target, Message):
+        await target.answer(text, reply_markup=kb.as_markup())
+    else:
+        await safe_edit(target, text, reply_markup=kb.as_markup())
+```
+
+---
+
+# 7) Thêm handler mở giỏ hàng từ menu
+
+Dán vào phần `USER HANDLERS`:
+
+```python
+@dp.message(lambda m: m.text and match_key(m.text, "btn_cart"))
+async def menu_cart(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+    await send_cart(message, lang, message.from_user.id)
+```
+
+---
+
+# 8) Thêm callback cho giỏ hàng
+
+Dán vào phần `CALLBACK HANDLERS`:
+
+```python
+@dp.callback_query(F.data.startswith("addcart:"))
+async def cb_addcart(call: CallbackQuery):
+    await get_or_create_user_from_tg(call.from_user)
+    lang = await get_user_lang(call.from_user.id)
+    service_id = int(call.data.split(":")[1])
+
+    ok, result = await add_to_cart(call.from_user.id, service_id)
+    if not ok:
+        await call.answer(t(lang, result), show_alert=True)
+        return
+
+    await call.answer(t(lang, "added_to_cart"), show_alert=True)
+
+
+@dp.callback_query(F.data.startswith("cart_remove:"))
+async def cb_cart_remove(call: CallbackQuery):
+    lang = await get_user_lang(call.from_user.id)
+    service_id = int(call.data.split(":")[1])
+
+    await remove_from_cart(call.from_user.id, service_id)
+    await call.answer(t(lang, "removed_from_cart"))
+    await send_cart(call, lang, call.from_user.id)
+
+
+@dp.callback_query(F.data == "cart_clear")
+async def cb_cart_clear(call: CallbackQuery):
+    lang = await get_user_lang(call.from_user.id)
+    await clear_cart(call.from_user.id)
+    await call.answer("OK")
+    await safe_edit(call, t(lang, "cart_empty"), reply_markup=back_to_menu_inline(lang))
+
+
+@dp.callback_query(F.data == "cart_checkout")
+async def cb_cart_checkout(call: CallbackQuery):
+    await get_or_create_user_from_tg(call.from_user)
+    lang = await get_user_lang(call.from_user.id)
+
+    ok, result = await checkout_cart(call.from_user.id)
+    if not ok:
+        if result == "balance_not_enough":
+            await call.answer(t(lang, "balance_not_enough"), show_alert=True)
+            await call.message.answer(t(lang, "topup_title"), reply_markup=topup_kb(lang))
+            return
+
+        await call.answer(t(lang, result), show_alert=True)
+        return
+
+    order_ids_text = ", ".join([f"#{x}" for x in result["order_ids"]])
+
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=t(lang, "btn_invoice"), callback_data="invoice_list")],
+            [InlineKeyboardButton(text=t(lang, "contact_support"), url=SUPPORT_LINK)],
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")]
+        ]
+    )
+
+    await call.message.answer(
+        t(
+            lang,
+            "checkout_success",
+            count=result["count"],
+            total=result["total"],
+            order_ids=order_ids_text
+        ),
+        reply_markup=kb
+    )
+
+    if ADMIN_ID:
+        try:
+            titles = "\n".join([f"- {x}" for x in result["titles"]])
+            await bot.send_message(
+                ADMIN_ID,
+                f"🛒 New cart checkout\n"
+                f"User: {call.from_user.full_name} ({call.from_user.id})\n"
+                f"Items: {result['count']}\n"
+                f"Total: {result['total']:.2f} USDT\n"
+                f"Orders: {order_ids_text}\n\n"
+                f"{titles}"
+            )
+        except Exception:
+            pass
+
+    await call.answer("OK")
+```
+
+---
+
+# 9) Thêm text lỗi `cart_empty` vào callback use
+Nếu chưa có thì okay rồi vì mình đã thêm translation ở trên.
+
+---
+
+# Kết quả sau khi xong
+
+Luồng hoạt động sẽ là:
+
+1. Khách vào dịch vụ
+2. Bấm **➕ Add to Cart**
+3. Có thể thêm nhiều món
+4. Bấm **🛒 Cart**
+5. Xem danh sách
+6. Xóa món nếu cần
+7. Bấm **✅ Checkout**
+8. Bot trừ số dư một lần và tạo nhiều order
+
+---
+
+# Gợi ý rất nên làm tiếp
+Mình khuyên bạn bước tiếp theo là:
+
+## đổi menu chính thành shop chuẩn hơn:
+- 🛒 Giỏ hàng
+- 📱 Số đẹp / ẩn danh
+- ⭐ Stars / Premium
+- 🤖 Thuê bot
+- 🧠 AI bot
+- 📢 Quảng cáo
+- 🛠 Theo yêu cầu
+
+Tức là khách không cần mò qua catalog nữa.
+
+---
+
+Nếu bạn muốn, tin nhắn tiếp theo mình sẽ gửi cho bạn luôn **`bot.py` full hoàn chỉnh đã gắn cart vào toàn bộ code** để bạn copy-paste chạy luôn.
