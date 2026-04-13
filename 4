@@ -1,0 +1,385 @@
+Hiểu rồi vro.
+
+## Ý bạn là:
+- **mỗi nhóm hàng đều có nút riêng**
+- khách vào bot là thấy nhiều mục rõ ràng
+- **nhưng 2 mục nổi bật nhất / VIP nhất là:**
+  - **👑 Số ẩn danh**
+  - **🤖 VIP Bot**
+
+=> Mình sẽ đề xuất kiểu menu như shop thật, trong đó:
+- tất cả danh mục đều có nút
+- 2 nút VIP đặt ở hàng đầu
+- các mục còn lại xếp dưới
+
+---
+
+# Menu đẹp và hợp lý nhất
+
+## Main menu nên như này:
+- **👑 Số ẩn danh**
+- **🤖 VIP Bot**
+- ⭐ Stars / Premium
+- 🎁 Gifts
+- 📢 Quảng cáo
+- ⚡ Truyền tin nhanh
+- 🛍 Toàn bộ dịch vụ
+- 🛒 Giỏ hàng
+- 💳 Nạp tiền
+- 💰 Số dư
+- 📦 Đơn hàng
+- 🧾 Hóa đơn
+- 🌍 Ngôn ngữ
+- 🆘 Hỗ trợ
+- 📢 Kênh
+- 👤 Cá nhân
+
+Như vậy:
+- khách mới vào sẽ bị hút vào 2 nút VIP đầu tiên
+- khách muốn xem hết vẫn có **🛍 Toàn bộ dịch vụ**
+- khách muốn mua nhanh có **🛒 Giỏ hàng**
+
+---
+
+# Mình khuyên bạn sửa `main_menu()` thành bản này
+
+```python
+def main_menu(lang: str):
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=t(lang, "btn_anon")), KeyboardButton(text=t(lang, "btn_vip_bot"))],
+            [KeyboardButton(text=t(lang, "btn_stars")), KeyboardButton(text=t(lang, "btn_gifts"))],
+            [KeyboardButton(text=t(lang, "btn_ads")), KeyboardButton(text=t(lang, "btn_broadcast"))],
+            [KeyboardButton(text=t(lang, "btn_catalog")), KeyboardButton(text=t(lang, "btn_cart"))],
+            [KeyboardButton(text=t(lang, "btn_topup")), KeyboardButton(text=t(lang, "btn_balance"))],
+            [KeyboardButton(text=t(lang, "btn_orders")), KeyboardButton(text=t(lang, "btn_invoice"))],
+            [KeyboardButton(text=t(lang, "btn_language")), KeyboardButton(text=t(lang, "btn_support"))],
+            [KeyboardButton(text=t(lang, "btn_channel")), KeyboardButton(text=t(lang, "btn_center"))],
+        ],
+        resize_keyboard=True
+    )
+```
+
+---
+
+# Thêm translation key
+
+## Thêm vào `en`
+```python
+"btn_anon": "👑 Private Numbers",
+"btn_vip_bot": "🤖 VIP Bots",
+"btn_stars": "⭐ Stars / Premium",
+"btn_gifts": "🎁 Gifts",
+"btn_ads": "📢 Advertising",
+"btn_broadcast": "⚡ Fast Broadcast",
+"btn_cart": "🛒 Cart",
+
+"anon_title": "👑 Private Numbers Collection\n\nChoose a premium number service below:",
+"vip_bot_title": "🤖 VIP Bot Suites\n\nChoose a premium bot service below:",
+"stars_title": "⭐ Stars / Premium\n\nChoose a package below:",
+"gifts_title": "🎁 Gift Services\n\nChoose a gift-related service below:",
+"ads_title": "📢 Advertising Services\n\nChoose a service below:",
+"broadcast_title": "⚡ Fast Broadcast Services\n\nChoose a service below:",
+```
+
+## Thêm vào `zh`
+```python
+"btn_anon": "👑 私享号码",
+"btn_vip_bot": "🤖 VIP 机器人",
+"btn_stars": "⭐ Stars / Premium",
+"btn_gifts": "🎁 礼品服务",
+"btn_ads": "📢 广告服务",
+"btn_broadcast": "⚡ 快速推送",
+"btn_cart": "🛒 购物车",
+
+"anon_title": "👑 私享号码系列\n\n请选择下方高端号码服务：",
+"vip_bot_title": "🤖 VIP 机器人套件\n\n请选择下方高端机器人服务：",
+"stars_title": "⭐ Stars / Premium\n\n请选择下方套餐：",
+"gifts_title": "🎁 礼品服务\n\n请选择下方相关服务：",
+"ads_title": "📢 广告服务\n\n请选择下方服务：",
+"broadcast_title": "⚡ 快速推送服务\n\n请选择下方服务：",
+```
+
+---
+
+# Cách làm chuẩn nhất: mỗi mục là một “nút lọc danh mục”
+
+Bạn không nên bắt khách vào `Catalog` rồi chọn tiếp quá nhiều bước.
+
+Nên làm kiểu:
+- bấm **👑 Private Numbers** → hiện đúng nhóm số ẩn danh
+- bấm **🤖 VIP Bots** → hiện đúng nhóm bot
+- bấm **⭐ Stars / Premium** → hiện đúng nhóm stars/premium
+- bấm **🎁 Gifts** → hiện đúng nhóm gift
+- bấm **📢 Advertising** → hiện đúng nhóm quảng cáo
+- bấm **⚡ Fast Broadcast** → hiện đúng nhóm push/broadcast
+
+---
+
+# Helper dùng chung để render service theo category name
+
+Dán vào `bot.py` phần UI helper:
+
+```python
+async def find_category_by_name_en(name_en: str):
+    rows = await list_categories()
+    for row in rows:
+        if row["name_en"] == name_en:
+            return row
+    return None
+```
+
+```python
+async def send_services_from_category_name(target, lang: str, category_name_en: str, title_key: str, icon: str = "✨"):
+    category = await find_category_by_name_en(category_name_en)
+    if not category:
+        if isinstance(target, Message):
+            await target.answer(t(lang, "no_services"))
+        else:
+            await safe_edit(target, t(lang, "no_services"))
+        return
+
+    rows = await list_services_by_category(category["id"])
+    if not rows:
+        if isinstance(target, Message):
+            await target.answer(t(lang, "no_services"))
+        else:
+            await safe_edit(target, t(lang, "no_services"))
+        return
+
+    kb = InlineKeyboardBuilder()
+    for row in rows:
+        kb.button(
+            text=f"{icon} {row['title']} - {float(row['price']):.2f} USDT",
+            callback_data=f"service:{row['id']}"
+        )
+    kb.button(text=t(lang, "back_menu"), callback_data="menu")
+    kb.adjust(1)
+
+    if isinstance(target, Message):
+        await target.answer(t(lang, title_key), reply_markup=kb.as_markup())
+    else:
+        await safe_edit(target, t(lang, title_key), reply_markup=kb.as_markup())
+```
+
+---
+
+# 6 menu riêng bạn nên có
+
+## 1. Số ẩn danh
+```python
+@dp.message(lambda m: m.text and match_key(m.text, "btn_anon"))
+async def menu_anon(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+    await send_services_from_category_name(
+        message, lang,
+        "Nice Numbers & Anonymous",
+        "anon_title",
+        "👑"
+    )
+```
+
+## 2. VIP Bot
+```python
+@dp.message(lambda m: m.text and match_key(m.text, "btn_vip_bot"))
+async def menu_vip_bot(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+    await send_services_from_category_name(
+        message, lang,
+        "VIP Bot Suites",
+        "vip_bot_title",
+        "🤖"
+    )
+```
+
+## 3. Stars / Premium
+```python
+@dp.message(lambda m: m.text and match_key(m.text, "btn_stars"))
+async def menu_stars(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+    await send_services_from_category_name(
+        message, lang,
+        "Stars, Premium & Gifts",
+        "stars_title",
+        "⭐"
+    )
+```
+
+## 4. Gifts
+```python
+@dp.message(lambda m: m.text and match_key(m.text, "btn_gifts"))
+async def menu_gifts(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+    await send_services_from_category_name(
+        message, lang,
+        "Stars, Premium & Gifts",
+        "gifts_title",
+        "🎁"
+    )
+```
+
+> Nếu muốn tách gifts riêng hẳn thì trong DB tạo category riêng `Gifts`.
+
+## 5. Advertising
+```python
+@dp.message(lambda m: m.text and match_key(m.text, "btn_ads"))
+async def menu_ads(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+    await send_services_from_category_name(
+        message, lang,
+        "Broadcast & Advertising",
+        "ads_title",
+        "📢"
+    )
+```
+
+## 6. Broadcast
+```python
+@dp.message(lambda m: m.text and match_key(m.text, "btn_broadcast"))
+async def menu_broadcast(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+    await send_services_from_category_name(
+        message, lang,
+        "Broadcast & Advertising",
+        "broadcast_title",
+        "⚡"
+    )
+```
+
+---
+
+# Nhưng để VIP nhất là bot và số ẩn danh
+Mình khuyên bạn làm thêm 2 điểm này:
+
+## A. Đặt 2 nút VIP ở hàng đầu
+Đã làm ở `main_menu()`.
+
+## B. Trong `welcome`, nhấn mạnh 2 mục đó
+Bạn đổi `welcome` thành:
+
+### EN
+```python
+"welcome": (
+    f"♛ Welcome to {SHOP_NAME}\n\n"
+    "✨ Premium Telegram concierge services\n"
+    "✨ Featured now: Private Numbers & VIP Bots\n"
+    "✨ Also available: Stars, Premium, Gifts, Advertising and Custom Services\n\n"
+    "👇 Please choose a premium category below\n\n"
+    f"🆘 Support: {SUPPORT_USERNAME}\n"
+    f"📢 Channel: @ZXZ368"
+),
+```
+
+### ZH
+```python
+"welcome": (
+    f"♛ 欢迎来到 {SHOP_NAME}\n\n"
+    "✨ 高端 Telegram 礼宾服务\n"
+    "✨ 当前主推：私享号码 与 VIP 机器人\n"
+    "✨ 同时提供 Stars、Premium、礼品、广告与定制服务\n\n"
+    "👇 请选择下方高端分类\n\n"
+    f"🆘 客服: {SUPPORT_USERNAME}\n"
+    f"📢 频道: @ZXZ368"
+),
+```
+
+---
+
+# Về phần “mỗi thư mục hàng nào cũng có nút”
+Đúng nhất là bạn nên có các category như sau trong DB:
+
+1. `Nice Numbers & Anonymous`
+2. `VIP Bot Suites`
+3. `Stars, Premium & Gifts`
+4. `Broadcast & Advertising`
+5. `AI & Custom Bots`
+6. `Custom Requests`
+
+Sau đó:
+- menu ngoài là các nút nhanh
+- `Catalog` vẫn giữ để ai muốn xem toàn bộ thì vào
+
+---
+
+# Cấu trúc shop tối ưu
+## Nút VIP ngoài cùng:
+- 👑 Private Numbers
+- 🤖 VIP Bots
+
+## Nút phụ:
+- ⭐ Stars / Premium
+- 🎁 Gifts
+- 📢 Advertising
+- ⚡ Fast Broadcast
+
+## Nút hệ thống:
+- 🛍 Catalog
+- 🛒 Cart
+- 💳 Top Up
+- 💰 Balance
+- 📦 Orders
+- 🧾 Invoices
+
+Cách này vừa:
+- đẹp
+- không quá rối
+- khách mới vào hiểu ngay shop bán gì
+- 2 mục VIP nổi bật đúng ý bạn
+
+---
+
+# Mình khuyên thêm 1 chi tiết nhỏ cho đẹp
+Trong `send_service_detail()`, nếu title có:
+- `Private`
+- `Anonymous`
+- `888`
+- `Bot`
+- `AI`
+- `Suite`
+
+thì có thể thêm icon premium ở đầu text.
+
+Ví dụ:
+
+```python
+prefix = "👑 " if any(x in row["title"] for x in ["Private", "Anonymous", "888"]) else "🤖 " if any(x in row["title"] for x in ["Bot", "AI", "Suite"]) else "✨ "
+```
+
+rồi:
+
+```python
+title=f"{prefix}{row['title']}"
+```
+
+Khách bấm vào sẽ thấy cảm giác xịn hơn.
+
+---
+
+# Kết luận
+Bạn đang cần kiểu:
+
+- **shop nhiều nút**
+- **mỗi nhóm có lối vào riêng**
+- **2 mục VIP nhất là số ẩn danh và bot**
+
+=> cách làm chuẩn là:
+1. thêm nhiều nút menu ngoài
+2. đưa `👑 Private Numbers` và `🤖 VIP Bots` lên hàng đầu
+3. mỗi nút dẫn tới danh sách dịch vụ riêng
+4. khách chọn món rồi đưa vào giỏ hàng
+
+---
+
+Nếu bạn muốn, mình có thể làm ngay cho bạn **1 bản patch hoàn chỉnh cho `bot.py`** gồm:
+- menu nhiều nút
+- 2 nút VIP nổi bật
+- các handler tương ứng
+- giữ nguyên giỏ hàng
+
+để bạn chỉ việc **copy-paste vào file hiện tại**.
