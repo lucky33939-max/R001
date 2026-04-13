@@ -1,0 +1,366 @@
+Ok vro, hiểu ý bạn rồi:
+
+## Mục tiêu
+- giao diện **đẹp mắt**
+- menu nhìn **sang / VIP**
+- khách thấy 2 nút:
+  - **👑 +888**
+  - **🤖 VIP Bot**
+- bấm vào là thấy dịch vụ **đúng gu**, mô tả ổn, có thể **thêm vào giỏ hàng**
+- vận hành mượt, không rối
+
+Mình đề xuất làm kiểu này là đẹp nhất:
+
+---
+
+# 1) Thêm 2 nút nổi bật ngoài menu chính
+
+## Thêm vào `TRANSLATIONS`
+
+### Trong `en`
+```python
+"btn_888": "👑 +888 Private",
+"btn_vip_bot": "🤖 VIP Bots",
+
+"vip_888_title": "👑 Private Numbers & +888 Collection\n\nChoose a premium option below:",
+"vip_bot_title": "🤖 VIP Bot Suites\n\nChoose a premium bot service below:",
+```
+
+### Trong `zh`
+```python
+"btn_888": "👑 +888 私享号",
+"btn_vip_bot": "🤖 VIP 机器人",
+
+"vip_888_title": "👑 私享号码与 +888 系列\n\n请选择下方高端服务：",
+"vip_bot_title": "🤖 VIP 机器人套件\n\n请选择下方高端机器人服务：",
+```
+
+---
+
+# 2) Sửa `main_menu()` để 2 nút này nằm trên cùng
+
+Thay `main_menu()` bằng bản này:
+
+```python
+def main_menu(lang: str):
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=t(lang, "btn_888")), KeyboardButton(text=t(lang, "btn_vip_bot"))],
+            [KeyboardButton(text=t(lang, "btn_hot")), KeyboardButton(text=t(lang, "btn_catalog"))],
+            [KeyboardButton(text=t(lang, "btn_promo")), KeyboardButton(text=t(lang, "btn_topup"))],
+            [KeyboardButton(text=t(lang, "btn_balance")), KeyboardButton(text=t(lang, "btn_cart"))],
+            [KeyboardButton(text=t(lang, "btn_orders")), KeyboardButton(text=t(lang, "btn_invoice"))],
+            [KeyboardButton(text=t(lang, "btn_language")), KeyboardButton(text=t(lang, "btn_support"))],
+            [KeyboardButton(text=t(lang, "btn_channel")), KeyboardButton(text=t(lang, "btn_center"))],
+        ],
+        resize_keyboard=True
+    )
+```
+
+---
+
+# 3) Thêm helper để lấy category theo tên
+
+Dán vào phần `UI HELPERS` trong `bot.py`:
+
+```python
+async def find_category_by_name_en(name_en: str):
+    rows = await list_categories()
+    for row in rows:
+        if row["name_en"] == name_en:
+            return row
+    return None
+```
+
+---
+
+# 4) Tạo 2 menu riêng: `+888` và `VIP Bot`
+
+## Dán tiếp vào phần `UI HELPERS`
+
+```python
+async def send_vip_888(target, lang: str):
+    category = await find_category_by_name_en("Nice Numbers & Anonymous")
+    if not category:
+        if isinstance(target, Message):
+            await target.answer(t(lang, "no_services"))
+        else:
+            await safe_edit(target, t(lang, "no_services"))
+        return
+
+    rows = await list_services_by_category(category["id"])
+    rows = [
+        r for r in rows
+        if (
+            "888" in r["title"]
+            or "Anonymous" in r["title"]
+            or "Private" in r["title"]
+            or "Prestige" in r["title"]
+            or "Number" in r["title"]
+        )
+    ]
+
+    if not rows:
+        if isinstance(target, Message):
+            await target.answer(t(lang, "no_services"))
+        else:
+            await safe_edit(target, t(lang, "no_services"))
+        return
+
+    kb = InlineKeyboardBuilder()
+    for row in rows:
+        kb.button(
+            text=f"👑 {row['title']} - {float(row['price']):.2f} USDT",
+            callback_data=f"service:{row['id']}"
+        )
+    kb.button(text=t(lang, "back_menu"), callback_data="menu")
+    kb.adjust(1)
+
+    if isinstance(target, Message):
+        await target.answer(t(lang, "vip_888_title"), reply_markup=kb.as_markup())
+    else:
+        await safe_edit(target, t(lang, "vip_888_title"), reply_markup=kb.as_markup())
+
+
+async def send_vip_bots(target, lang: str):
+    cat_bot = await find_category_by_name_en("VIP Bot Suites")
+    cat_ai = await find_category_by_name_en("AI & Custom Bots")
+
+    rows = []
+
+    if cat_bot:
+        rows.extend(await list_services_by_category(cat_bot["id"]))
+    if cat_ai:
+        rows.extend(await list_services_by_category(cat_ai["id"]))
+
+    rows = [
+        r for r in rows
+        if (
+            "Bot" in r["title"]
+            or "AI" in r["title"]
+            or "Suite" in r["title"]
+            or "Development" in r["title"]
+            or "Translator" in r["title"]
+            or "Calculator" in r["title"]
+        )
+    ]
+
+    if not rows:
+        if isinstance(target, Message):
+            await target.answer(t(lang, "no_services"))
+        else:
+            await safe_edit(target, t(lang, "no_services"))
+        return
+
+    kb = InlineKeyboardBuilder()
+    for row in rows:
+        kb.button(
+            text=f"🤖 {row['title']} - {float(row['price']):.2f} USDT",
+            callback_data=f"service:{row['id']}"
+        )
+    kb.button(text=t(lang, "back_menu"), callback_data="menu")
+    kb.adjust(1)
+
+    if isinstance(target, Message):
+        await target.answer(t(lang, "vip_bot_title"), reply_markup=kb.as_markup())
+    else:
+        await safe_edit(target, t(lang, "vip_bot_title"), reply_markup=kb.as_markup())
+```
+
+---
+
+# 5) Thêm handler cho 2 nút mới
+
+## Dán vào phần `USER HANDLERS`
+
+```python
+@dp.message(lambda m: m.text and match_key(m.text, "btn_888"))
+async def menu_888(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+    await send_vip_888(message, lang)
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_vip_bot"))
+async def menu_vip_bot(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+    await send_vip_bots(message, lang)
+```
+
+---
+
+# 6) Nếu muốn có callback quay lại riêng cho 2 menu này
+Có thể thêm luôn:
+
+## Dán vào phần `CALLBACK HANDLERS`
+
+```python
+@dp.callback_query(F.data == "vip_888")
+async def cb_vip_888(call: CallbackQuery):
+    lang = await get_user_lang(call.from_user.id)
+    await send_vip_888(call, lang)
+    await call.answer()
+
+
+@dp.callback_query(F.data == "vip_bots")
+async def cb_vip_bots(call: CallbackQuery):
+    lang = await get_user_lang(call.from_user.id)
+    await send_vip_bots(call, lang)
+    await call.answer()
+```
+
+---
+
+# 7) Sửa nút trong `send_home()` nếu muốn đẹp hơn nữa
+Bạn có thể giữ như cũ, hoặc chèn thêm một tin nhắn ngắn ngay sau `/start`:
+
+## Ví dụ trong `cmd_start`
+Sau `await send_home(...)`, thêm:
+
+```python
+    lang = user["language"] or "zh"
+    promo_kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=t(lang, "btn_888"), callback_data="vip_888")],
+            [InlineKeyboardButton(text=t(lang, "btn_vip_bot"), callback_data="vip_bots")],
+        ]
+    )
+    await message.answer("✨ VIP Showcase", reply_markup=promo_kb)
+```
+
+Nếu muốn song ngữ đẹp hơn:
+
+```python
+    await message.answer(
+        "✨ VIP Showcase / 尊享专区",
+        reply_markup=promo_kb
+    )
+```
+
+---
+
+# 8) Tên dịch vụ nên dùng để khách bấm vào thấy “ok”
+
+Mình khuyên trong `seed_sample_data()` bạn giữ bộ tên này:
+
+## Số ẩn danh / +888
+- **Prestige Number Selection**
+- **Elite Anonymous Number Access - 1 Month**
+- **Royal +888 Private Number - 1 Month**
+
+## Bot
+- **Elite Management Bot Suite**
+- **Private Calculator Bot Pro**
+- **Global Translator Bot Suite**
+- **AI Concierge Bot**
+- **Executive AI Multi-Tool Suite**
+- **Signature Custom Bot Development**
+
+Bộ này nhìn vừa:
+- sang
+- dễ hiểu
+- không quá phô
+- khách bấm vào thấy có cảm giác premium
+
+---
+
+# 9) Mô tả ngắn gọn nhưng “đắt tiền”
+Bạn có thể dùng mô tả kiểu này trong DB.
+
+## Ví dụ cho `Royal +888 Private Number - 1 Month`
+### EN
+```python
+"Royal-tier +888 private number support package with premium priority handling, VIP guidance, and exclusive setup assistance."
+```
+
+### ZH
+```python
+"Royal 级别 +888 私密号码支持套餐，提供优先处理、VIP 指导与专属配置协助。"
+```
+
+## Ví dụ cho `AI Concierge Bot`
+### EN
+```python
+"High-end AI concierge bot for customer support, FAQ handling, guided flows, and intelligent response automation."
+```
+
+### ZH
+```python
+"高端 AI 礼宾机器人，适用于客服、问答、引导流程与智能回复自动化。"
+```
+
+---
+
+# 10) Kết quả UX sau khi làm xong
+Khách mở bot sẽ thấy ngay:
+
+- 👑 +888 Private
+- 🤖 VIP Bots
+
+Bấm vào:
+- thấy danh sách được lọc đúng nhóm
+- từng item nhìn premium
+- vào chi tiết có:
+  - ➕ Add to Cart
+  - 🛒 Buy Now
+- cảm giác shop rõ ràng hơn nhiều
+
+---
+
+# 11) Nếu muốn “đẹp mắt” hơn nữa, mình khuyên đổi welcome text
+## EN
+```python
+"welcome": (
+    f"♛ Welcome to {SHOP_NAME}\n\n"
+    "✨ Premium Telegram digital concierge\n"
+    "✨ Private support • VIP handling • curated services\n"
+    "✨ Private numbers, +888 collection, elite bots and custom AI solutions\n\n"
+    "👇 Please choose a premium service below\n\n"
+    f"🆘 Support: {SUPPORT_USERNAME}\n"
+    f"📢 Channel: @ZXZ368"
+),
+```
+
+## ZH
+```python
+"welcome": (
+    f"♛ 欢迎来到 {SHOP_NAME}\n\n"
+    "✨ 高端 Telegram 数字礼宾服务\n"
+    "✨ 专属支持 • VIP 处理 • 精选项目\n"
+    "✨ 提供私享号码、+888 系列、精英机器人与 AI 定制方案\n\n"
+    "👇 请选择下方高端服务\n\n"
+    f"🆘 客服: {SUPPORT_USERNAME}\n"
+    f"📢 频道: @ZXZ368"
+),
+```
+
+---
+
+# 12) Cách đơn giản nhất để bạn làm ngay
+Nếu bạn muốn nhanh:
+
+## Chỉ cần làm 4 việc:
+1. thêm translation key cho:
+   - `btn_888`
+   - `btn_vip_bot`
+   - `vip_888_title`
+   - `vip_bot_title`
+2. sửa `main_menu()`
+3. thêm 3 helper:
+   - `find_category_by_name_en`
+   - `send_vip_888`
+   - `send_vip_bots`
+4. thêm 2 message handler:
+   - `menu_888`
+   - `menu_vip_bot`
+
+Là bot đã nhìn khác hẳn rồi.
+
+---
+
+Nếu bạn muốn, tin nhắn tiếp theo mình sẽ gửi cho bạn luôn **đoạn `bot.py` patch hoàn chỉnh ready-to-paste** cho đúng 2 nút:
+- **👑 +888 Private**
+- **🤖 VIP Bots**
+
+để bạn chỉ việc copy vào file hiện tại.
