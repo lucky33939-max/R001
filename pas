@@ -1,0 +1,5 @@
+DATABASE_URL=postgresql://postgres:hHjGxfAluQYmaIjTInmsfwKYCiUHAvzt@postgres.railway.internal:5432/railway
+CHANNEL_USERNAME=@ZXZ368
+PAYMENT_ADDRESS=TSPpLmYuFXLi6GU1W4uyG6NKGbdWPw886U
+SUPPORT_USERNAME=@ZZB339
+NOWPAY_API_KEY=your_api_key
