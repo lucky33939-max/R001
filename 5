@@ -1,0 +1,8824 @@
+Ok me vro 😄
+
+Mình làm tiếp cho bạn theo hướng này:
+
+## Shop sẽ có:
+### 2 mục VIP nổi bật:
+- 👑 **Số ẩn danh**
+- 🤖 **VIP Bot**
+
+### Các mục còn lại đều có nút riêng:
+- ⭐ Stars / Premium
+- 🎁 Gifts
+- 📢 Advertising
+- ⚡ Fast Broadcast
+- 🛍 Catalog
+- 🛒 Cart
+- 💳 Top Up
+- 💰 Balance
+- 📦 Orders
+- 🧾 Invoices
+- 🌍 Language
+- 🆘 Support
+- 📢 Channel
+- 👤 Center
+
+---
+
+## Giờ mình có thể gửi cho bạn ngay 1 trong 2 thứ:
+
+### 1) **Patch bot.py hoàn chỉnh**
+Đã gắn:
+- menu nhiều nút
+- 2 nút VIP đầu tiên
+- giỏ hàng
+- lọc từng danh mục riêng
+
+### 2)
+/
+
+Không tệp nào được chọnKhông tệp nào được chọn
+import os
+
+import asyncio
+
+from dotenv import load_dotenv
+
+import asyncpg
+
+
+
+from aiogram import Bot, Dispatcher, F
+
+from aiogram.filters import Command
+
+from aiogram.types import (
+
+    Message,
+
+    CallbackQuery,
+
+    ReplyKeyboardMarkup,
+
+    KeyboardButton,
+
+    InlineKeyboardMarkup,
+
+    InlineKeyboardButton,
+
+)
+
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+
+
+load_dotenv()
+
+
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+
+SUPPORT_USERNAME = os.getenv("SUPPORT_USERNAME", "@ZZB339")
+
+CHANNEL_URL = os.getenv("CHANNEL_URL", "https://t.me/ZXZ368")
+
+SHOP_NAME = os.getenv("SHOP_NAME", "♛『 至尊机甲 』")
+
+START_BANNER_URL = os.getenv("START_BANNER_URL", "").strip()
+
+PAYMENT_TEXT = os.getenv(
+
+    "PAYMENT_TEXT",
+
+    "USDT TRC20\nWallet: YOUR_WALLET_ADDRESS\nAfter payment, please send receipt to support."
+
+)
+
+
+
+if not BOT_TOKEN:
+
+    raise ValueError("Missing BOT_TOKEN")
+
+if not DATABASE_URL:
+
+    raise ValueError("Missing DATABASE_URL")
+
+
+
+SUPPORT_LINK = f"https://t.me/{SUPPORT_USERNAME.lstrip('@')}"
+
+
+
+bot = Bot(token=BOT_TOKEN)
+
+dp = Dispatcher()
+
+db_pool = None
+
+
+
+
+
+# =========================
+
+# TRANSLATIONS (EN + ZH)
+
+# =========================
+
+
+
+TRANSLATIONS = {
+
+    "en": {
+
+        "welcome": (
+
+            f"🔥 Welcome to {SHOP_NAME}\n\n"
+
+            "✅ Professional Telegram services\n"
+
+            "✅ Fast handling and reliable support\n"
+
+            "✅ Premium service packages for individuals and communities\n\n"
+
+            "🎁 Today’s promotions are live\n"
+
+            "👇 Please choose an option below to begin\n\n"
+
+            f"🆘 Support: {SUPPORT_USERNAME}\n"
+
+            f"📢 Channel: @ZXZ368"
+
+        ),
+
+        "choose_action": "Choose an option below:",
+
+        "btn_hot": "🔥 Hot Services",
+
+        "btn_catalog": "🛍 Catalog",
+
+        "btn_promo": "💎 Promotions",
+
+        "btn_topup": "💳 Top Up",
+
+        "btn_balance": "💰 Balance",
+
+        "btn_orders": "📦 Orders",
+
+        "btn_invoice": "🧾 Invoices",
+
+        "btn_language": "🌍 Language",
+
+        "btn_support": "🆘 Support",
+
+        "btn_channel": "📢 Channel",
+
+        "btn_center": "👤 My Center",
+
+
+
+        "language_title": "🌍 Please choose your language:",
+
+        "language_updated_en": "✅ Language changed to English.",
+
+        "language_updated_zh": "✅ 语言已切换为中文。",
+
+
+
+        "back": "⬅️ Back",
+
+        "back_menu": "🏠 Main Menu",
+
+        "buy_now": "🛒 Buy Now",
+
+        "contact_support": "🆘 Contact Support",
+
+        "open_channel": "📢 Open Channel",
+
+        "topup_now": "💳 Top Up Now",
+
+        "view_invoice": "🧾 View Invoice",
+
+
+
+        "hot_title": "🔥 Featured services\n\nChoose a package below:",
+
+        "catalog_title": "🛍 Service categories\n\nPlease choose a category:",
+
+        "services_title": "📂 {category}\n\nChoose a service to view:",
+
+        "service_detail": (
+
+            "✨ {title}\n"
+
+            "🏷 {badge}\n"
+
+            "💵 Price: {price:.2f} USDT\n\n"
+
+            "{description}\n\n"
+
+            "📌 After payment, admin will process your order and contact you."
+
+        ),
+
+
+
+        "promo_title": "💎 Today's promotions\n\n{promo}",
+
+        "default_promo": (
+
+            "🎁 Top up 100 USDT: get 5% bonus\n"
+
+            "🎁 Top up 300 USDT: get 10% bonus\n"
+
+            "🎁 Selected service packages are on limited discount"
+
+        ),
+
+
+
+        "balance_text": "💰 Current balance: {balance:.2f} USDT",
+
+        "balance_not_enough": "Insufficient balance. Please top up to continue.",
+
+        "buy_success": (
+
+            "✅ Order created successfully\n\n"
+
+            "📦 Service: {title}\n"
+
+            "💵 Price: {price:.2f} USDT\n"
+
+            "🧾 Order ID: #{order_id}\n\n"
+
+            "Admin will process your request soon."
+
+        ),
+
+
+
+        "orders_empty": "You have no orders yet.",
+
+        "orders_title": "📦 Your latest 10 orders:\n\n",
+
+        "orders_line": "#{id} - {title} - {price:.2f} USDT - {status} - {created_at}\n",
+
+
+
+        "invoices_empty": "You do not have any invoices yet.",
+
+        "invoices_title": "🧾 Your recent invoices:\n\nChoose one invoice to view details.",
+
+        "invoice_paid": "Paid",
+
+        "invoice_detail": (
+
+            "🧾 INVOICE\n\n"
+
+            "Invoice No: {invoice_no}\n"
+
+            "Order ID: #{order_id}\n"
+
+            "Customer: {name}\n"
+
+            "User ID: {user_id}\n"
+
+            "Service: {service}\n"
+
+            "Amount: {amount:.2f} USDT\n"
+
+            "Status: {status}\n"
+
+            "Created At: {created_at}\n\n"
+
+            "Support: {support}"
+
+        ),
+
+
+
+        "center_text": (
+
+            "🌞 Hello, {name}\n\n"
+
+            "🆔 User ID: {user_id}\n"
+
+            "📅 Registered: {created_at}\n"
+
+            "💰 Balance: {balance:.2f} USDT\n"
+
+            "💸 Total spent: {spent:.2f} USDT\n"
+
+            "📦 Total orders: {orders}\n\n"
+
+            "Please choose an option below."
+
+        ),
+
+
+
+        "support_text": (
+
+            "🆘 Customer Support\n\n"
+
+            f"• Support: {SUPPORT_USERNAME}\n"
+
+            f"• Channel: {CHANNEL_URL}\n\n"
+
+            "If you need service consultation or payment confirmation, please contact support."
+
+        ),
+
+
+
+        "channel_text": "📢 Official channel of the shop:",
+
+        "topup_title": "💳 Top Up\n\nChoose an amount below or contact support after payment.",
+
+        "topup_info": (
+
+            "💳 Top up {amount} USDT\n\n"
+
+            "{payment_text}\n\n"
+
+            f"🆘 Support: {SUPPORT_USERNAME}\n"
+
+            "📌 Send your Telegram ID: {user_id}"
+
+        ),
+
+
+
+        "no_categories": "No categories yet.",
+
+        "no_services": "No services in this category yet.",
+
+        "service_not_found": "Service not found.",
+
+
+
+        "admin_only": "You are not allowed to use this command.",
+
+        "admin_help": (
+
+            "⚙️ Admin commands\n\n"
+
+            "/seed\n"
+
+            "/addcategory name_en | name_zh\n"
+
+            "/addservice category_id | title | price | badge | desc_en | desc_zh\n"
+
+            "/feature service_id | 1 or 0\n"
+
+            "/setbalance telegram_id | amount\n"
+
+            "/promo promotion text\n"
+
+            "/broadcast message\n"
+
+            "/services"
+
+        ),
+
+        "seed_done": "✅ Sample data created.",
+
+        "category_added": "✅ Category added.",
+
+        "service_added": "✅ Service added.",
+
+        "feature_updated": "✅ Featured updated.",
+
+        "balance_updated": "✅ Balance updated.",
+
+        "promo_updated": "✅ Promotion updated.",
+
+        "broadcast_done": "✅ Broadcast sent.\nSuccess: {ok}\nFailed: {fail}",
+
+        "services_empty": "No services yet.",
+
+        "services_admin_title": "📋 Service list:\n\n",
+
+        "services_admin_line": "ID {id} | {title} | {price:.2f} USDT | Cat {category_id} | Featured: {featured}\n",
+
+
+
+        "bad_addcategory": "Wrong syntax.\nExample:\n/addcategory Bot Rental | 机器人租用",
+
+        "bad_addservice": "Wrong syntax.\nExample:\n/addservice 1 | Monthly Bot Rental | 49 | HOT | English description | 中文描述",
+
+        "bad_feature": "Wrong syntax.\nExample:\n/feature 1 | 1",
+
+        "bad_setbalance": "Wrong syntax.\nExample:\n/setbalance 123456789 | 100",
+
+        "broadcast_empty": "Broadcast content is empty."
+
+    },
+
+
+
+    "zh": {
+
+        "welcome": (
+
+            f"🔥 欢迎来到 {SHOP_NAME}\n\n"
+
+            "✅ 专业 Telegram 服务\n"
+
+            "✅ 处理高效，支持可靠\n"
+
+            "✅ 为个人与社群提供优质服务套餐\n\n"
+
+            "🎁 今日优惠已开启\n"
+
+            "👇 请选择下方功能开始\n\n"
+
+            f"🆘 客服: {SUPPORT_USERNAME}\n"
+
+            f"📢 频道: @ZXZ368"
+
+        ),
+
+        "choose_action": "请选择下面的功能：",
+
+        "btn_hot": "🔥 热门服务",
+
+        "btn_catalog": "🛍 服务目录",
+
+        "btn_promo": "💎 优惠活动",
+
+        "btn_topup": "💳 充值",
+
+        "btn_balance": "💰 余额",
+
+        "btn_orders": "📦 订单",
+
+        "btn_invoice": "🧾 发票",
+
+        "btn_language": "🌍 语言",
+
+        "btn_support": "🆘 客服",
+
+        "btn_channel": "📢 频道",
+
+        "btn_center": "👤 个人中心",
+
+
+
+        "language_title": "🌍 请选择语言：",
+
+        "language_updated_en": "✅ Language changed to English.",
+
+        "language_updated_zh": "✅ 语言已切换为中文。",
+
+
+
+        "back": "⬅️ 返回",
+
+        "back_menu": "🏠 主菜单",
+
+        "buy_now": "🛒 立即购买",
+
+        "contact_support": "🆘 联系客服",
+
+        "open_channel": "📢 打开频道",
+
+        "topup_now": "💳 立即充值",
+
+        "view_invoice": "🧾 查看发票",
+
+
+
+        "hot_title": "🔥 热门服务\n\n请选择下面的套餐：",
+
+        "catalog_title": "🛍 服务分类\n\n请选择一个分类：",
+
+        "services_title": "📂 {category}\n\n请选择要查看的服务：",
+
+        "service_detail": (
+
+            "✨ {title}\n"
+
+            "🏷 {badge}\n"
+
+            "💵 价格: {price:.2f} USDT\n\n"
+
+            "{description}\n\n"
+
+            "📌 付款后，管理员将处理您的订单并联系您。"
+
+        ),
+
+
+
+        "promo_title": "💎 今日优惠\n\n{promo}",
+
+        "default_promo": (
+
+            "🎁 充值 100 USDT：赠送 5%\n"
+
+            "🎁 充值 300 USDT：赠送 10%\n"
+
+            "🎁 部分服务套餐限时优惠中"
+
+        ),
+
+
+
+        "balance_text": "💰 当前余额: {balance:.2f} USDT",
+
+        "balance_not_enough": "余额不足，请先充值。",
+
+        "buy_success": (
+
+            "✅ 订单创建成功\n\n"
+
+            "📦 服务: {title}\n"
+
+            "💵 价格: {price:.2f} USDT\n"
+
+            "🧾 订单号: #{order_id}\n\n"
+
+            "管理员会尽快处理您的需求。"
+
+        ),
+
+
+
+        "orders_empty": "您还没有订单。",
+
+        "orders_title": "📦 最近 10 个订单：\n\n",
+
+        "orders_line": "#{id} - {title} - {price:.2f} USDT - {status} - {created_at}\n",
+
+
+
+        "invoices_empty": "您还没有任何发票。",
+
+        "invoices_title": "🧾 您最近的发票：\n\n请选择一个发票查看详情。",
+
+        "invoice_paid": "已支付",
+
+        "invoice_detail": (
+
+            "🧾 发票\n\n"
+
+            "发票号: {invoice_no}\n"
+
+            "订单号: #{order_id}\n"
+
+            "客户: {name}\n"
+
+            "用户ID: {user_id}\n"
+
+            "服务: {service}\n"
+
+            "金额: {amount:.2f} USDT\n"
+
+            "状态: {status}\n"
+
+            "时间: {created_at}\n\n"
+
+            "客服: {support}"
+
+        ),
+
+
+
+        "center_text": (
+
+            "🌞 您好，{name}\n\n"
+
+            "🆔 用户ID: {user_id}\n"
+
+            "📅 注册时间: {created_at}\n"
+
+            "💰 余额: {balance:.2f} USDT\n"
+
+            "💸 总消费: {spent:.2f} USDT\n"
+
+            "📦 总订单: {orders}\n\n"
+
+            "请选择下面的功能。"
+
+        ),
+
+
+
+        "support_text": (
+
+            "🆘 客户支持\n\n"
+
+            f"• 客服: {SUPPORT_USERNAME}\n"
+
+            f"• 频道: {CHANNEL_URL}\n\n"
+
+            "如果您需要服务咨询或付款确认，请联系客服。"
+
+        ),
+
+
+
+        "channel_text": "📢 商店官方频道：",
+
+        "topup_title": "💳 充值\n\n请选择金额，付款后请联系客户支持。",
+
+        "topup_info": (
+
+            "💳 充值 {amount} USDT\n\n"
+
+            "{payment_text}\n\n"
+
+            f"🆘 客服: {SUPPORT_USERNAME}\n"
+
+            "📌 发送您的 Telegram ID: {user_id}"
+
+        ),
+
+
+
+        "no_categories": "暂无分类。",
+
+        "no_services": "该分类下暂无服务。",
+
+        "service_not_found": "未找到服务。",
+
+
+
+        "admin_only": "您没有权限使用此命令。",
+
+        "admin_help": (
+
+            "⚙️ 管理员命令\n\n"
+
+            "/seed\n"
+
+            "/addcategory name_en | name_zh\n"
+
+            "/addservice category_id | title | price | badge | desc_en | desc_zh\n"
+
+            "/feature service_id | 1 或 0\n"
+
+            "/setbalance telegram_id | amount\n"
+
+            "/promo 优惠内容\n"
+
+            "/broadcast 内容\n"
+
+            "/services"
+
+        ),
+
+        "seed_done": "✅ 示例数据已创建。",
+
+        "category_added": "✅ 已添加分类。",
+
+        "service_added": "✅ 已添加服务。",
+
+        "feature_updated": "✅ 已更新热门状态。",
+
+        "balance_updated": "✅ 余额已更新。",
+
+        "promo_updated": "✅ 优惠内容已更新。",
+
+        "broadcast_done": "✅ 群发完成。\n成功: {ok}\n失败: {fail}",
+
+        "services_empty": "暂无服务。",
+
+        "services_admin_title": "📋 服务列表：\n\n",
+
+        "services_admin_line": "ID {id} | {title} | {price:.2f} USDT | 分类 {category_id} | 热门: {featured}\n",
+
+
+
+        "bad_addcategory": "格式错误。\n例如：\n/addcategory Bot Rental | 机器人租用",
+
+        "bad_addservice": "格式错误。\n例如：\n/addservice 1 | Monthly Bot Rental | 49 | HOT | English description | 中文描述",
+
+        "bad_feature": "格式错误。\n例如：\n/feature 1 | 1",
+
+        "bad_setbalance": "格式错误。\n例如：\n/setbalance 123456789 | 100",
+
+        "broadcast_empty": "群发内容为空。"
+
+    }
+
+}
+
+
+
+
+
+def t(lang: str, key: str, **kwargs):
+
+    lang = lang if lang in TRANSLATIONS else "zh"
+
+    text = TRANSLATIONS[lang].get(key, TRANSLATIONS["zh"].get(key, key))
+
+    return text.format(**kwargs) if kwargs else text
+
+
+
+
+
+def match_key(text: str, key: str):
+
+    if not text:
+
+        return False
+
+    return text in [TRANSLATIONS[lang][key] for lang in TRANSLATIONS]
+
+
+
+
+
+def make_invoice_no(order_id: int, created_at):
+
+    return f"INV-{created_at:%Y%m%d}-{order_id:06d}"
+
+
+
+
+
+# =========================
+
+# KEYBOARDS
+
+# =========================
+
+
+
+def main_menu(lang: str):
+
+    return ReplyKeyboardMarkup(
+
+        keyboard=[
+
+            [KeyboardButton(text=t(lang, "btn_hot")), KeyboardButton(text=t(lang, "btn_catalog"))],
+
+            [KeyboardButton(text=t(lang, "btn_promo")), KeyboardButton(text=t(lang, "btn_topup"))],
+
+            [KeyboardButton(text=t(lang, "btn_balance")), KeyboardButton(text=t(lang, "btn_orders"))],
+
+            [KeyboardButton(text=t(lang, "btn_invoice")), KeyboardButton(text=t(lang, "btn_language"))],
+
+            [KeyboardButton(text=t(lang, "btn_support")), KeyboardButton(text=t(lang, "btn_channel"))],
+
+            [KeyboardButton(text=t(lang, "btn_center"))],
+
+        ],
+
+        resize_keyboard=True
+
+    )
+
+
+
+
+
+def language_kb():
+
+    return InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [InlineKeyboardButton(text="🇺🇸 English", callback_data="lang:en")],
+
+            [InlineKeyboardButton(text="🇨🇳 中文", callback_data="lang:zh")],
+
+        ]
+
+    )
+
+
+
+
+
+def support_kb(lang: str):
+
+    return InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [InlineKeyboardButton(text=t(lang, "contact_support"), url=SUPPORT_LINK)],
+
+            [InlineKeyboardButton(text=t(lang, "open_channel"), url=CHANNEL_URL)],
+
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")],
+
+        ]
+
+    )
+
+
+
+
+
+def topup_kb(lang: str):
+
+    return InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [
+
+                InlineKeyboardButton(text="10 USDT", callback_data="topup:10"),
+
+                InlineKeyboardButton(text="50 USDT", callback_data="topup:50"),
+
+            ],
+
+            [
+
+                InlineKeyboardButton(text="100 USDT", callback_data="topup:100"),
+
+                InlineKeyboardButton(text="200 USDT", callback_data="topup:200"),
+
+            ],
+
+            [
+
+                InlineKeyboardButton(text="500 USDT", callback_data="topup:500"),
+
+                InlineKeyboardButton(text="1000 USDT", callback_data="topup:1000"),
+
+            ],
+
+            [InlineKeyboardButton(text=t(lang, "contact_support"), url=SUPPORT_LINK)],
+
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")],
+
+        ]
+
+    )
+
+
+
+
+
+def back_to_menu_inline(lang: str):
+
+    return InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")]
+
+        ]
+
+    )
+
+
+
+
+
+# =========================
+
+# DATABASE
+
+# =========================
+
+
+
+async def init_db():
+
+    global db_pool
+
+    db_pool = await asyncpg.create_pool(DATABASE_URL)
+
+
+
+    async with db_pool.acquire() as conn:
+
+        await conn.execute("""
+
+        CREATE TABLE IF NOT EXISTS users (
+
+            id SERIAL PRIMARY KEY,
+
+            telegram_id BIGINT UNIQUE NOT NULL,
+
+            username TEXT,
+
+            full_name TEXT,
+
+            language TEXT DEFAULT 'zh',
+
+            balance NUMERIC(12,2) NOT NULL DEFAULT 0,
+
+            total_spent NUMERIC(12,2) NOT NULL DEFAULT 0,
+
+            created_at TIMESTAMP DEFAULT NOW()
+
+        );
+
+        """)
+
+
+
+        await conn.execute("""
+
+        CREATE TABLE IF NOT EXISTS categories (
+
+            id SERIAL PRIMARY KEY,
+
+            name_en TEXT NOT NULL,
+
+            name_zh TEXT NOT NULL,
+
+            active BOOLEAN DEFAULT TRUE,
+
+            sort_order INTEGER DEFAULT 0
+
+        );
+
+        """)
+
+
+
+        await conn.execute("""
+
+        CREATE TABLE IF NOT EXISTS services (
+
+            id SERIAL PRIMARY KEY,
+
+            category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+
+            title TEXT NOT NULL,
+
+            price NUMERIC(12,2) NOT NULL DEFAULT 0,
+
+            badge TEXT DEFAULT 'POPULAR',
+
+            desc_en TEXT DEFAULT '',
+
+            desc_zh TEXT DEFAULT '',
+
+            featured BOOLEAN DEFAULT FALSE,
+
+            active BOOLEAN DEFAULT TRUE,
+
+            created_at TIMESTAMP DEFAULT NOW()
+
+        );
+
+        """)
+
+
+
+        await conn.execute("""
+
+        CREATE TABLE IF NOT EXISTS orders (
+
+            id SERIAL PRIMARY KEY,
+
+            telegram_id BIGINT NOT NULL,
+
+            service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+
+            price NUMERIC(12,2) NOT NULL,
+
+            status TEXT DEFAULT 'paid',
+
+            created_at TIMESTAMP DEFAULT NOW()
+
+        );
+
+        """)
+
+
+
+        await conn.execute("""
+
+        CREATE TABLE IF NOT EXISTS settings (
+
+            key TEXT PRIMARY KEY,
+
+            value TEXT
+
+        );
+
+        """)
+
+
+
+        # Safe migrations if old DB exists
+
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'zh';")
+
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(12,2) NOT NULL DEFAULT 0;")
+
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS total_spent NUMERIC(12,2) NOT NULL DEFAULT 0;")
+
+
+
+        # convert old vi users if any
+
+        await conn.execute("""
+
+            UPDATE users
+
+            SET language = 'zh'
+
+            WHERE language IS NULL OR language = 'vi'
+
+        """)
+
+
+
+
+
+async def get_or_create_user_from_tg(tg_user):
+
+    async with db_pool.acquire() as conn:
+
+        user = await conn.fetchrow(
+
+            "SELECT * FROM users WHERE telegram_id = $1",
+
+            tg_user.id
+
+        )
+
+        if not user:
+
+            await conn.execute("""
+
+                INSERT INTO users (telegram_id, username, full_name, language)
+
+                VALUES ($1, $2, $3, 'zh')
+
+            """, tg_user.id, tg_user.username, tg_user.full_name)
+
+            user = await conn.fetchrow(
+
+                "SELECT * FROM users WHERE telegram_id = $1",
+
+                tg_user.id
+
+            )
+
+        return user
+
+
+
+
+
+async def get_user(tg_id: int):
+
+    async with db_pool.acquire() as conn:
+
+        return await conn.fetchrow(
+
+            "SELECT * FROM users WHERE telegram_id = $1",
+
+            tg_id
+
+        )
+
+
+
+
+
+async def get_user_lang(tg_id: int):
+
+    user = await get_user(tg_id)
+
+    if not user:
+
+        return "zh"
+
+    return user["language"] or "zh"
+
+
+
+
+
+async def set_user_lang(tg_id: int, lang: str):
+
+    if lang not in TRANSLATIONS:
+
+        lang = "zh"
+
+    async with db_pool.acquire() as conn:
+
+        await conn.execute(
+
+            "UPDATE users SET language = $1 WHERE telegram_id = $2",
+
+            lang, tg_id
+
+        )
+
+
+
+
+
+async def get_promo_text(lang: str):
+
+    async with db_pool.acquire() as conn:
+
+        row = await conn.fetchrow("SELECT value FROM settings WHERE key = 'promo_text'")
+
+        if row and row["value"]:
+
+            return row["value"]
+
+    return t(lang, "default_promo")
+
+
+
+
+
+async def list_categories():
+
+    async with db_pool.acquire() as conn:
+
+        return await conn.fetch("""
+
+            SELECT * FROM categories
+
+            WHERE active = TRUE
+
+            ORDER BY sort_order ASC, id ASC
+
+        """)
+
+
+
+
+
+async def get_category(category_id: int):
+
+    async with db_pool.acquire() as conn:
+
+        return await conn.fetchrow("""
+
+            SELECT * FROM categories WHERE id = $1
+
+        """, category_id)
+
+
+
+
+
+async def list_featured_services():
+
+    async with db_pool.acquire() as conn:
+
+        return await conn.fetch("""
+
+            SELECT * FROM services
+
+            WHERE active = TRUE AND featured = TRUE
+
+            ORDER BY id ASC
+
+            LIMIT 20
+
+        """)
+
+
+
+
+
+async def list_services_by_category(category_id: int):
+
+    async with db_pool.acquire() as conn:
+
+        return await conn.fetch("""
+
+            SELECT * FROM services
+
+            WHERE active = TRUE AND category_id = $1
+
+            ORDER BY id ASC
+
+        """, category_id)
+
+
+
+
+
+async def get_service(service_id: int):
+
+    async with db_pool.acquire() as conn:
+
+        return await conn.fetchrow("""
+
+            SELECT * FROM services
+
+            WHERE id = $1 AND active = TRUE
+
+        """, service_id)
+
+
+
+
+
+async def create_order(user_tg_id: int, service_id: int):
+
+    async with db_pool.acquire() as conn:
+
+        async with conn.transaction():
+
+            user = await conn.fetchrow("""
+
+                SELECT * FROM users
+
+                WHERE telegram_id = $1
+
+                FOR UPDATE
+
+            """, user_tg_id)
+
+
+
+            service = await conn.fetchrow("""
+
+                SELECT * FROM services
+
+                WHERE id = $1 AND active = TRUE
+
+            """, service_id)
+
+
+
+            if not user or not service:
+
+                return False, "service_not_found"
+
+
+
+            if float(user["balance"]) < float(service["price"]):
+
+                return False, "balance_not_enough"
+
+
+
+            await conn.execute("""
+
+                UPDATE users
+
+                SET balance = balance - $1,
+
+                    total_spent = total_spent + $1
+
+                WHERE telegram_id = $2
+
+            """, service["price"], user_tg_id)
+
+
+
+            order = await conn.fetchrow("""
+
+                INSERT INTO orders (telegram_id, service_id, price, status)
+
+                VALUES ($1, $2, $3, 'paid')
+
+                RETURNING id, created_at
+
+            """, user_tg_id, service_id, service["price"])
+
+
+
+            return True, {
+
+                "order_id": order["id"],
+
+                "created_at": order["created_at"],
+
+                "title": service["title"],
+
+                "price": float(service["price"])
+
+            }
+
+
+
+
+
+async def user_orders(tg_id: int):
+
+    async with db_pool.acquire() as conn:
+
+        return await conn.fetch("""
+
+            SELECT o.id, s.title, o.price, o.status, o.created_at
+
+            FROM orders o
+
+            JOIN services s ON s.id = o.service_id
+
+            WHERE o.telegram_id = $1
+
+            ORDER BY o.id DESC
+
+            LIMIT 10
+
+        """, tg_id)
+
+
+
+
+
+async def user_orders_count(tg_id: int):
+
+    async with db_pool.acquire() as conn:
+
+        row = await conn.fetchrow("""
+
+            SELECT COUNT(*) AS total
+
+            FROM orders
+
+            WHERE telegram_id = $1
+
+        """, tg_id)
+
+        return int(row["total"]) if row else 0
+
+
+
+
+
+async def get_user_invoices(tg_id: int):
+
+    async with db_pool.acquire() as conn:
+
+        return await conn.fetch("""
+
+            SELECT o.id, o.price, o.status, o.created_at, s.title
+
+            FROM orders o
+
+            JOIN services s ON s.id = o.service_id
+
+            WHERE o.telegram_id = $1
+
+            ORDER BY o.id DESC
+
+            LIMIT 20
+
+        """, tg_id)
+
+
+
+
+
+async def get_invoice_by_order_id(order_id: int, tg_id: int):
+
+    async with db_pool.acquire() as conn:
+
+        return await conn.fetchrow("""
+
+            SELECT o.id, o.telegram_id, o.price, o.status, o.created_at, s.title
+
+            FROM orders o
+
+            JOIN services s ON s.id = o.service_id
+
+            WHERE o.id = $1 AND o.telegram_id = $2
+
+        """, order_id, tg_id)
+
+
+
+
+
+async def all_user_ids():
+
+    async with db_pool.acquire() as conn:
+
+        rows = await conn.fetch("SELECT telegram_id FROM users")
+
+        return [r["telegram_id"] for r in rows]
+
+
+
+
+
+# =========================
+
+# UI HELPERS
+
+# =========================
+
+
+
+def category_name(row, lang):
+
+    return row["name_en"] if lang == "en" else row["name_zh"]
+
+
+
+
+
+def service_desc(row, lang):
+
+    return row["desc_en"] if lang == "en" else row["desc_zh"]
+
+
+
+
+
+async def send_home(target, lang: str):
+
+    text = t(lang, "welcome")
+
+    if isinstance(target, Message):
+
+        if START_BANNER_URL:
+
+            await target.answer_photo(
+
+                photo=START_BANNER_URL,
+
+                caption=text,
+
+                reply_markup=main_menu(lang)
+
+            )
+
+        else:
+
+            await target.answer(text, reply_markup=main_menu(lang))
+
+    else:
+
+        await target.message.answer(text, reply_markup=main_menu(lang))
+
+
+
+
+
+async def send_categories(target, lang: str):
+
+    rows = await list_categories()
+
+    if not rows:
+
+        if isinstance(target, Message):
+
+            await target.answer(t(lang, "no_categories"))
+
+        else:
+
+            await target.message.edit_text(t(lang, "no_categories"))
+
+        return
+
+
+
+    kb = InlineKeyboardBuilder()
+
+    for row in rows:
+
+        kb.button(text=category_name(row, lang), callback_data=f"cat:{row['id']}")
+
+    kb.button(text=t(lang, "back_menu"), callback_data="menu")
+
+    kb.adjust(1)
+
+
+
+    if isinstance(target, Message):
+
+        await target.answer(t(lang, "catalog_title"), reply_markup=kb.as_markup())
+
+    else:
+
+        await target.message.edit_text(t(lang, "catalog_title"), reply_markup=kb.as_markup())
+
+
+
+
+
+async def send_featured(target, lang: str):
+
+    rows = await list_featured_services()
+
+    if not rows:
+
+        if isinstance(target, Message):
+
+            await target.answer(t(lang, "services_empty"))
+
+        else:
+
+            await target.message.edit_text(t(lang, "services_empty"))
+
+        return
+
+
+
+    kb = InlineKeyboardBuilder()
+
+    for row in rows:
+
+        kb.button(
+
+            text=f"{row['title']} - {float(row['price']):.2f} USDT",
+
+            callback_data=f"service:{row['id']}"
+
+        )
+
+    kb.button(text=t(lang, "back_menu"), callback_data="menu")
+
+    kb.adjust(1)
+
+
+
+    if isinstance(target, Message):
+
+        await target.answer(t(lang, "hot_title"), reply_markup=kb.as_markup())
+
+    else:
+
+        await target.message.edit_text(t(lang, "hot_title"), reply_markup=kb.as_markup())
+
+
+
+
+
+async def send_services_by_category(call: CallbackQuery, lang: str, category_id: int):
+
+    category = await get_category(category_id)
+
+    if not category:
+
+        await call.answer(t(lang, "no_categories"), show_alert=True)
+
+        return
+
+
+
+    rows = await list_services_by_category(category_id)
+
+    if not rows:
+
+        await call.message.edit_text(
+
+            t(lang, "no_services"),
+
+            reply_markup=back_to_menu_inline(lang)
+
+        )
+
+        return
+
+
+
+    kb = InlineKeyboardBuilder()
+
+    for row in rows:
+
+        kb.button(
+
+            text=f"{row['title']} - {float(row['price']):.2f} USDT",
+
+            callback_data=f"service:{row['id']}"
+
+        )
+
+    kb.button(text=t(lang, "back"), callback_data="catalog")
+
+    kb.button(text=t(lang, "back_menu"), callback_data="menu")
+
+    kb.adjust(1)
+
+
+
+    await call.message.edit_text(
+
+        t(lang, "services_title", category=category_name(category, lang)),
+
+        reply_markup=kb.as_markup()
+
+    )
+
+
+
+
+
+async def send_service_detail(call: CallbackQuery, lang: str, service_id: int):
+
+    row = await get_service(service_id)
+
+    if not row:
+
+        await call.answer(t(lang, "service_not_found"), show_alert=True)
+
+        return
+
+
+
+    kb = InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [InlineKeyboardButton(text=t(lang, "buy_now"), callback_data=f"buy:{service_id}")],
+
+            [InlineKeyboardButton(text=t(lang, "contact_support"), url=SUPPORT_LINK)],
+
+            [InlineKeyboardButton(text=t(lang, "back"), callback_data=f"cat:{row['category_id']}")],
+
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")],
+
+        ]
+
+    )
+
+
+
+    await call.message.edit_text(
+
+        t(
+
+            lang,
+
+            "service_detail",
+
+            title=row["title"],
+
+            badge=row["badge"],
+
+            price=float(row["price"]),
+
+            description=service_desc(row, lang)
+
+        ),
+
+        reply_markup=kb
+
+    )
+
+
+
+
+
+async def send_invoices_list(target, lang: str, tg_id: int):
+
+    rows = await get_user_invoices(tg_id)
+
+    if not rows:
+
+        if isinstance(target, Message):
+
+            await target.answer(t(lang, "invoices_empty"))
+
+        else:
+
+            await target.message.edit_text(t(lang, "invoices_empty"))
+
+        return
+
+
+
+    kb = InlineKeyboardBuilder()
+
+    for row in rows:
+
+        invoice_no = make_invoice_no(row["id"], row["created_at"])
+
+        kb.button(
+
+            text=f"{invoice_no} - {float(row['price']):.2f} USDT",
+
+            callback_data=f"invoice:{row['id']}"
+
+        )
+
+    kb.button(text=t(lang, "back_menu"), callback_data="menu")
+
+    kb.adjust(1)
+
+
+
+    if isinstance(target, Message):
+
+        await target.answer(t(lang, "invoices_title"), reply_markup=kb.as_markup())
+
+    else:
+
+        await target.message.edit_text(t(lang, "invoices_title"), reply_markup=kb.as_markup())
+
+
+
+
+
+async def send_invoice_detail(call: CallbackQuery, lang: str, order_id: int):
+
+    row = await get_invoice_by_order_id(order_id, call.from_user.id)
+
+    if not row:
+
+        await call.answer(t(lang, "service_not_found"), show_alert=True)
+
+        return
+
+
+
+    invoice_no = make_invoice_no(row["id"], row["created_at"])
+
+    status_text = t(lang, "invoice_paid") if row["status"] == "paid" else row["status"]
+
+
+
+    text = t(
+
+        lang,
+
+        "invoice_detail",
+
+        invoice_no=invoice_no,
+
+        order_id=row["id"],
+
+        name=call.from_user.full_name,
+
+        user_id=call.from_user.id,
+
+        service=row["title"],
+
+        amount=float(row["price"]),
+
+        status=status_text,
+
+        created_at=row["created_at"].strftime("%Y-%m-%d %H:%M"),
+
+        support=SUPPORT_USERNAME
+
+    )
+
+
+
+    kb = InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [InlineKeyboardButton(text=t(lang, "back"), callback_data="invoice_list")],
+
+            [InlineKeyboardButton(text=t(lang, "contact_support"), url=SUPPORT_LINK)],
+
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")],
+
+        ]
+
+    )
+
+
+
+    await call.message.edit_text(text, reply_markup=kb)
+
+
+
+
+
+# =========================
+
+# USER HANDLERS
+
+# =========================
+
+
+
+@dp.message(Command("start"))
+
+async def cmd_start(message: Message):
+
+    user = await get_or_create_user_from_tg(message.from_user)
+
+    await send_home(message, user["language"] or "zh")
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_language"))
+
+async def menu_language(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await message.answer(t(lang, "language_title"), reply_markup=language_kb())
+
+
+
+
+
+@dp.callback_query(F.data.startswith("lang:"))
+
+async def cb_language(call: CallbackQuery):
+
+    await get_or_create_user_from_tg(call.from_user)
+
+    lang = call.data.split(":")[1]
+
+    if lang not in TRANSLATIONS:
+
+        lang = "zh"
+
+
+
+    await set_user_lang(call.from_user.id, lang)
+
+    await call.message.edit_text(t(lang, f"language_updated_{lang}"))
+
+    await call.message.answer(t(lang, "choose_action"), reply_markup=main_menu(lang))
+
+    await call.answer()
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_hot"))
+
+async def menu_hot(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await send_featured(message, lang)
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_catalog"))
+
+async def menu_catalog(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await send_categories(message, lang)
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_promo"))
+
+async def menu_promo(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    promo = await get_promo_text(lang)
+
+
+
+    kb = InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [InlineKeyboardButton(text=t(lang, "topup_now"), callback_data="open_topup")],
+
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")]
+
+        ]
+
+    )
+
+
+
+    await message.answer(t(lang, "promo_title", promo=promo), reply_markup=kb)
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_topup"))
+
+async def menu_topup(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await message.answer(t(lang, "topup_title"), reply_markup=topup_kb(lang))
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_balance"))
+
+async def menu_balance(message: Message):
+
+    user = await get_or_create_user_from_tg(message.from_user)
+
+    lang = user["language"] or "zh"
+
+    await message.answer(t(lang, "balance_text", balance=float(user["balance"])))
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_orders"))
+
+async def menu_orders(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    rows = await user_orders(message.from_user.id)
+
+
+
+    if not rows:
+
+        return await message.answer(t(lang, "orders_empty"))
+
+
+
+    text = t(lang, "orders_title")
+
+    for row in rows:
+
+        text += t(
+
+            lang,
+
+            "orders_line",
+
+            id=row["id"],
+
+            title=row["title"],
+
+            price=float(row["price"]),
+
+            status=row["status"],
+
+            created_at=row["created_at"].strftime("%Y-%m-%d %H:%M")
+
+        )
+
+
+
+    await message.answer(text)
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_invoice"))
+
+async def menu_invoices(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await send_invoices_list(message, lang, message.from_user.id)
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_support"))
+
+async def menu_support(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await message.answer(t(lang, "support_text"), reply_markup=support_kb(lang))
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_channel"))
+
+async def menu_channel(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    kb = InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [InlineKeyboardButton(text=t(lang, "open_channel"), url=CHANNEL_URL)],
+
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")]
+
+        ]
+
+    )
+
+    await message.answer(t(lang, "channel_text"), reply_markup=kb)
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_center"))
+
+async def menu_center(message: Message):
+
+    user = await get_or_create_user_from_tg(message.from_user)
+
+    lang = user["language"] or "zh"
+
+    total_orders = await user_orders_count(message.from_user.id)
+
+
+
+    await message.answer(
+
+        t(
+
+            lang,
+
+            "center_text",
+
+            name=message.from_user.full_name,
+
+            user_id=message.from_user.id,
+
+            created_at=user["created_at"].strftime("%Y-%m-%d %H:%M"),
+
+            balance=float(user["balance"]),
+
+            spent=float(user["total_spent"]),
+
+            orders=total_orders
+
+        ),
+
+        reply_markup=main_menu(lang)
+
+    )
+
+
+
+
+
+# =========================
+
+# CALLBACK HANDLERS
+
+# =========================
+
+
+
+@dp.callback_query(F.data == "menu")
+
+async def cb_menu(call: CallbackQuery):
+
+    lang = await get_user_lang(call.from_user.id)
+
+    await call.message.answer(t(lang, "choose_action"), reply_markup=main_menu(lang))
+
+    await call.answer()
+
+
+
+
+
+@dp.callback_query(F.data == "catalog")
+
+async def cb_catalog(call: CallbackQuery):
+
+    lang = await get_user_lang(call.from_user.id)
+
+    await send_categories(call, lang)
+
+    await call.answer()
+
+
+
+
+
+@dp.callback_query(F.data == "open_topup")
+
+async def cb_open_topup(call: CallbackQuery):
+
+    lang = await get_user_lang(call.from_user.id)
+
+    await call.message.answer(t(lang, "topup_title"), reply_markup=topup_kb(lang))
+
+    await call.answer()
+
+
+
+
+
+@dp.callback_query(F.data.startswith("cat:"))
+
+async def cb_category(call: CallbackQuery):
+
+    lang = await get_user_lang(call.from_user.id)
+
+    category_id = int(call.data.split(":")[1])
+
+    await send_services_by_category(call, lang, category_id)
+
+    await call.answer()
+
+
+
+
+
+@dp.callback_query(F.data.startswith("service:"))
+
+async def cb_service(call: CallbackQuery):
+
+    lang = await get_user_lang(call.from_user.id)
+
+    service_id = int(call.data.split(":")[1])
+
+    await send_service_detail(call, lang, service_id)
+
+    await call.answer()
+
+
+
+
+
+@dp.callback_query(F.data.startswith("buy:"))
+
+async def cb_buy(call: CallbackQuery):
+
+    await get_or_create_user_from_tg(call.from_user)
+
+    lang = await get_user_lang(call.from_user.id)
+
+    service_id = int(call.data.split(":")[1])
+
+
+
+    ok, result = await create_order(call.from_user.id, service_id)
+
+    if not ok:
+
+        if result == "balance_not_enough":
+
+            await call.answer(t(lang, "balance_not_enough"), show_alert=True)
+
+            await call.message.answer(t(lang, "topup_title"), reply_markup=topup_kb(lang))
+
+            return
+
+
+
+        await call.answer(t(lang, result), show_alert=True)
+
+        return
+
+
+
+    kb = InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [InlineKeyboardButton(text=t(lang, "view_invoice"), callback_data=f"invoice:{result['order_id']}")],
+
+            [InlineKeyboardButton(text=t(lang, "contact_support"), url=SUPPORT_LINK)],
+
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")]
+
+        ]
+
+    )
+
+
+
+    await call.message.answer(
+
+        t(
+
+            lang,
+
+            "buy_success",
+
+            title=result["title"],
+
+            price=result["price"],
+
+            order_id=result["order_id"]
+
+        ),
+
+        reply_markup=kb
+
+    )
+
+
+
+    if ADMIN_ID:
+
+        try:
+
+            await bot.send_message(
+
+                ADMIN_ID,
+
+                f"🆕 New order\n"
+
+                f"User: {call.from_user.full_name} ({call.from_user.id})\n"
+
+                f"Service: {result['title']}\n"
+
+                f"Price: {result['price']:.2f} USDT\n"
+
+                f"Order ID: #{result['order_id']}"
+
+            )
+
+        except Exception:
+
+            pass
+
+
+
+    await call.answer("OK")
+
+
+
+
+
+@dp.callback_query(F.data.startswith("topup:"))
+
+async def cb_topup(call: CallbackQuery):
+
+    lang = await get_user_lang(call.from_user.id)
+
+    amount = call.data.split(":")[1]
+
+    await call.message.answer(
+
+        t(
+
+            lang,
+
+            "topup_info",
+
+            amount=amount,
+
+            payment_text=PAYMENT_TEXT,
+
+            user_id=call.from_user.id
+
+        ),
+
+        reply_markup=support_kb(lang)
+
+    )
+
+    await call.answer()
+
+
+
+
+
+@dp.callback_query(F.data == "invoice_list")
+
+async def cb_invoice_list(call: CallbackQuery):
+
+    lang = await get_user_lang(call.from_user.id)
+
+    await send_invoices_list(call, lang, call.from_user.id)
+
+    await call.answer()
+
+
+
+
+
+@dp.callback_query(F.data.startswith("invoice:"))
+
+async def cb_invoice_detail(call: CallbackQuery):
+
+    lang = await get_user_lang(call.from_user.id)
+
+    order_id = int(call.data.split(":")[1])
+
+    await send_invoice_detail(call, lang, order_id)
+
+    await call.answer()
+
+
+
+
+
+# =========================
+
+# ADMIN COMMANDS
+
+# =========================
+
+
+
+def is_admin(user_id: int):
+
+    return user_id == ADMIN_ID
+
+
+
+
+
+@dp.message(Command("admin"))
+
+async def cmd_admin(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+    await message.answer(t(lang, "admin_help"))
+
+
+
+
+
+@dp.message(Command("seed"))
+
+async def cmd_seed(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+
+
+    async with db_pool.acquire() as conn:
+
+        count = await conn.fetchrow("SELECT COUNT(*) AS total FROM categories")
+
+        if int(count["total"]) == 0:
+
+            await conn.execute("""
+
+                INSERT INTO categories (name_en, name_zh, sort_order) VALUES
+
+                ('Bot Rental', '机器人租用', 1),
+
+                ('Custom Bot', '定制机器人', 2),
+
+                ('Group/Channel Setup', '群组/频道搭建', 3),
+
+                ('Telegram Automation', 'Telegram 自动化', 4),
+
+                ('Premium Gifts', '高级礼品', 5)
+
+            """)
+
+
+
+        svc_count = await conn.fetchrow("SELECT COUNT(*) AS total FROM services")
+
+        if int(svc_count["total"]) == 0:
+
+            await conn.execute("""
+
+                INSERT INTO services
+
+                (category_id, title, price, badge, desc_en, desc_zh, featured)
+
+                VALUES
+
+                (
+
+                    1, 'Monthly Bot Rental', 49, 'HOT',
+
+                    'Monthly rental bot package for sales, customer support and Telegram marketing.',
+
+                    '月租机器人套餐，适合销售、客服和 Telegram 营销。',
+
+                    TRUE
+
+                ),
+
+                (
+
+                    2, 'Custom Bot Development', 129, 'PREMIUM',
+
+                    'Custom Telegram bot development based on your business needs.',
+
+                    '根据您的业务需求定制开发 Telegram 机器人。',
+
+                    TRUE
+
+                ),
+
+                (
+
+                    3, 'Group/Channel Setup Pro', 39, 'POPULAR',
+
+                    'Professional setup for group/channel with menu, rules, welcome flow and optimization.',
+
+                    '专业搭建群组/频道，包含菜单、规则、欢迎流程和优化。',
+
+                    TRUE
+
+                ),
+
+                (
+
+                    4, 'Automation Package', 79, 'AUTO',
+
+                    'Legal Telegram automation: replies, forms, routing, mini CRM.',
+
+                    '合法 Telegram 自动化：回复、表单、分流、迷你 CRM。',
+
+                    FALSE
+
+                ),
+
+                (
+
+                    5, 'Premium Gift Assistance', 25, 'GIFT',
+
+                    'Support and consultation for valid premium gift related services.',
+
+                    '提供合法高级礼品相关服务的支持与咨询。',
+
+                    FALSE
+
+                )
+
+            """)
+
+
+
+    await message.answer(t(lang, "seed_done"))
+
+
+
+
+
+@dp.message(Command("addcategory"))
+
+async def cmd_addcategory(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+
+
+    try:
+
+        raw = message.text.replace("/addcategory", "", 1).strip()
+
+        name_en, name_zh = [x.strip() for x in raw.split("|", 1)]
+
+
+
+        async with db_pool.acquire() as conn:
+
+            await conn.execute("""
+
+                INSERT INTO categories (name_en, name_zh)
+
+                VALUES ($1, $2)
+
+            """, name_en, name_zh)
+
+
+
+        await message.answer(t(lang, "category_added"))
+
+    except Exception:
+
+        await message.answer(t(lang, "bad_addcategory"))
+
+
+
+
+
+@dp.message(Command("addservice"))
+
+async def cmd_addservice(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+
+
+    try:
+
+        raw = message.text.replace("/addservice", "", 1).strip()
+
+        parts = [x.strip() for x in raw.split("|", 5)]
+
+
+
+        category_id = int(parts[0])
+
+        title = parts[1]
+
+        price = float(parts[2])
+
+        badge = parts[3]
+
+        desc_en = parts[4]
+
+        desc_zh = parts[5]
+
+
+
+        async with db_pool.acquire() as conn:
+
+            await conn.execute("""
+
+                INSERT INTO services
+
+                (category_id, title, price, badge, desc_en, desc_zh)
+
+                VALUES ($1, $2, $3, $4, $5, $6)
+
+            """, category_id, title, price, badge, desc_en, desc_zh)
+
+
+
+        await message.answer(t(lang, "service_added"))
+
+    except Exception:
+
+        await message.answer(t(lang, "bad_addservice"))
+
+
+
+
+
+@dp.message(Command("feature"))
+
+async def cmd_feature(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+
+
+    try:
+
+        raw = message.text.replace("/feature", "", 1).strip()
+
+        service_id, val = [x.strip() for x in raw.split("|", 1)]
+
+        featured = val == "1"
+
+
+
+        async with db_pool.acquire() as conn:
+
+            await conn.execute("""
+
+                UPDATE services
+
+                SET featured = $1
+
+                WHERE id = $2
+
+            """, featured, int(service_id))
+
+
+
+        await message.answer(t(lang, "feature_updated"))
+
+    except Exception:
+
+        await message.answer(t(lang, "bad_feature"))
+
+
+
+
+
+@dp.message(Command("setbalance"))
+
+async def cmd_setbalance(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+
+
+    try:
+
+        raw = message.text.replace("/setbalance", "", 1).strip()
+
+        tg_id, amount = [x.strip() for x in raw.split("|", 1)]
+
+
+
+        async with db_pool.acquire() as conn:
+
+            user = await conn.fetchrow(
+
+                "SELECT * FROM users WHERE telegram_id = $1",
+
+                int(tg_id)
+
+            )
+
+
+
+            if user:
+
+                await conn.execute("""
+
+                    UPDATE users SET balance = $1 WHERE telegram_id = $2
+
+                """, float(amount), int(tg_id))
+
+            else:
+
+                await conn.execute("""
+
+                    INSERT INTO users (telegram_id, username, full_name, balance, language)
+
+                    VALUES ($1, '', '', $2, 'zh')
+
+                """, int(tg_id), float(amount))
+
+
+
+        await message.answer(t(lang, "balance_updated"))
+
+    except Exception:
+
+        await message.answer(t(lang, "bad_setbalance"))
+
+
+
+
+
+@dp.message(Command("promo"))
+
+async def cmd_promo(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+
+
+    promo_text = message.text.replace("/promo", "", 1).strip()
+
+    if not promo_text:
+
+        promo_text = t(lang, "default_promo")
+
+
+
+    async with db_pool.acquire() as conn:
+
+        await conn.execute("""
+
+            INSERT INTO settings (key, value)
+
+            VALUES ('promo_text', $1)
+
+            ON CONFLICT (key)
+
+            DO UPDATE SET value = EXCLUDED.value
+
+        """, promo_text)
+
+
+
+    await message.answer(t(lang, "promo_updated"))
+
+
+
+
+
+@dp.message(Command("services"))
+
+async def cmd_services(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+
+
+    async with db_pool.acquire() as conn:
+
+        rows = await conn.fetch("""
+
+            SELECT id, category_id, title, price, featured
+
+            FROM services
+
+            ORDER BY id ASC
+
+        """)
+
+
+
+    if not rows:
+
+        return await message.answer(t(lang, "services_empty"))
+
+
+
+    text = t(lang, "services_admin_title")
+
+    for row in rows:
+
+        text += t(
+
+            lang,
+
+            "services_admin_line",
+
+            id=row["id"],
+
+            title=row["title"],
+
+            price=float(row["price"]),
+
+            category_id=row["category_id"],
+
+            featured=row["featured"]
+
+        )
+
+
+
+    await message.answer(text)
+
+
+
+
+
+@dp.message(Command("broadcast"))
+
+async def cmd_broadcast(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+
+
+    content = message.text.replace("/broadcast", "", 1).strip()
+
+    if not content:
+
+        return await message.answer(t(lang, "broadcast_empty"))
+
+
+
+    user_ids = await all_user_ids()
+
+    ok = 0
+
+    fail = 0
+
+
+
+    for uid in user_ids:
+
+        try:
+
+            await bot.send_message(uid, content)
+
+            ok += 1
+
+            await asyncio.sleep(0.05)
+
+        except Exception:
+
+            fail += 1
+
+
+
+    await message.answer(t(lang, "broadcast_done", ok=ok, fail=fail))
+
+
+
+
+
+# =========================
+
+# STARTUP
+
+# =========================
+
+
+
+async def main():
+
+    await init_db()
+
+    print("Bot is running...")
+
+    await dp.start_polling(bot)
+
+
+
+if __name__ == "__main__":
+
+    asyncio.run(main())
+
+
+
+cho tôi bộ code db.py chạy chung với code này đi vro
+
+Được vro. Dưới đây là db.py tách riêng để chạy chung với code bot của bạn.
+
+1) File db.py
+import os
+import asyncpg
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("Missing DATABASE_URL")
+
+db_pool = None
+
+DEFAULT_PROMOS = {
+    "en": (
+        "🎁 Top up 100 USDT: get 5% bonus\n"
+        "🎁 Top up 300 USDT: get 10% bonus\n"
+        "🎁 Selected service packages are on limited discount"
+    ),
+    "zh": (
+        "🎁 充值 100 USDT：赠送 5%\n"
+        "🎁 充值 300 USDT：赠送 10%\n"
+        "🎁 部分服务套餐限时优惠中"
+    )
+}
+
+
+async def init_db():
+    global db_pool
+    db_pool = await asyncpg.create_pool(DATABASE_URL)
+
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            telegram_id BIGINT UNIQUE NOT NULL,
+            username TEXT,
+            full_name TEXT,
+            language TEXT DEFAULT 'zh',
+            balance NUMERIC(12,2) NOT NULL DEFAULT 0,
+            total_spent NUMERIC(12,2) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS categories (
+            id SERIAL PRIMARY KEY,
+            name_en TEXT NOT NULL,
+            name_zh TEXT NOT NULL,
+            active BOOLEAN DEFAULT TRUE,
+            sort_order INTEGER DEFAULT 0
+        );
+        """)
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS services (
+            id SERIAL PRIMARY KEY,
+            category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            price NUMERIC(12,2) NOT NULL DEFAULT 0,
+            badge TEXT DEFAULT 'POPULAR',
+            desc_en TEXT DEFAULT '',
+            desc_zh TEXT DEFAULT '',
+            featured BOOLEAN DEFAULT FALSE,
+            active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS orders (
+            id SERIAL PRIMARY KEY,
+            telegram_id BIGINT NOT NULL,
+            service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+            price NUMERIC(12,2) NOT NULL,
+            status TEXT DEFAULT 'paid',
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        );
+        """)
+
+        # Safe migrations
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'zh';")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(12,2) NOT NULL DEFAULT 0;")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS total_spent NUMERIC(12,2) NOT NULL DEFAULT 0;")
+
+        await conn.execute("""
+            UPDATE users
+            SET language = 'zh'
+            WHERE language IS NULL OR language = 'vi'
+        """)
+
+
+async def close_db():
+    global db_pool
+    if db_pool:
+        await db_pool.close()
+        db_pool = None
+
+
+async def get_or_create_user_from_tg(tg_user):
+    async with db_pool.acquire() as conn:
+        user = await conn.fetchrow(
+            "SELECT * FROM users WHERE telegram_id = $1",
+            tg_user.id
+        )
+
+        if not user:
+            await conn.execute("""
+                INSERT INTO users (telegram_id, username, full_name, language)
+                VALUES ($1, $2, $3, 'zh')
+            """, tg_user.id, tg_user.username, tg_user.full_name)
+
+            user = await conn.fetchrow(
+                "SELECT * FROM users WHERE telegram_id = $1",
+                tg_user.id
+            )
+
+        return user
+
+
+async def get_user(tg_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetchrow(
+            "SELECT * FROM users WHERE telegram_id = $1",
+            tg_id
+        )
+
+
+async def get_user_lang(tg_id: int):
+    user = await get_user(tg_id)
+    if not user:
+        return "zh"
+    return user["language"] or "zh"
+
+
+async def set_user_lang(tg_id: int, lang: str):
+    if lang not in ("en", "zh"):
+        lang = "zh"
+
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE users SET language = $1 WHERE telegram_id = $2",
+            lang, tg_id
+        )
+
+
+async def get_promo_text(lang: str):
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT value FROM settings WHERE key = 'promo_text'"
+        )
+        if row and row["value"]:
+            return row["value"]
+
+    return DEFAULT_PROMOS.get(lang, DEFAULT_PROMOS["zh"])
+
+
+async def list_categories():
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT * FROM categories
+            WHERE active = TRUE
+            ORDER BY sort_order ASC, id ASC
+        """)
+
+
+async def get_category(category_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetchrow("""
+            SELECT * FROM categories
+            WHERE id = $1
+        """, category_id)
+
+
+async def list_featured_services():
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT * FROM services
+            WHERE active = TRUE AND featured = TRUE
+            ORDER BY id ASC
+            LIMIT 20
+        """)
+
+
+async def list_services_by_category(category_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT * FROM services
+            WHERE active = TRUE AND category_id = $1
+            ORDER BY id ASC
+        """, category_id)
+
+
+async def get_service(service_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetchrow("""
+            SELECT * FROM services
+            WHERE id = $1 AND active = TRUE
+        """, service_id)
+
+
+async def create_order(user_tg_id: int, service_id: int):
+    async with db_pool.acquire() as conn:
+        async with conn.transaction():
+            user = await conn.fetchrow("""
+                SELECT * FROM users
+                WHERE telegram_id = $1
+                FOR UPDATE
+            """, user_tg_id)
+
+            service = await conn.fetchrow("""
+                SELECT * FROM services
+                WHERE id = $1 AND active = TRUE
+            """, service_id)
+
+            if not user or not service:
+                return False, "service_not_found"
+
+            if float(user["balance"]) < float(service["price"]):
+                return False, "balance_not_enough"
+
+            await conn.execute("""
+                UPDATE users
+                SET balance = balance - $1,
+                    total_spent = total_spent + $1
+                WHERE telegram_id = $2
+            """, service["price"], user_tg_id)
+
+            order = await conn.fetchrow("""
+                INSERT INTO orders (telegram_id, service_id, price, status)
+                VALUES ($1, $2, $3, 'paid')
+                RETURNING id, created_at
+            """, user_tg_id, service_id, service["price"])
+
+            return True, {
+                "order_id": order["id"],
+                "created_at": order["created_at"],
+                "title": service["title"],
+                "price": float(service["price"])
+            }
+
+
+async def user_orders(tg_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT o.id, s.title, o.price, o.status, o.created_at
+            FROM orders o
+            JOIN services s ON s.id = o.service_id
+            WHERE o.telegram_id = $1
+            ORDER BY o.id DESC
+            LIMIT 10
+        """, tg_id)
+
+
+async def user_orders_count(tg_id: int):
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT COUNT(*) AS total
+            FROM orders
+            WHERE telegram_id = $1
+        """, tg_id)
+        return int(row["total"]) if row else 0
+
+
+async def get_user_invoices(tg_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT o.id, o.price, o.status, o.created_at, s.title
+            FROM orders o
+            JOIN services s ON s.id = o.service_id
+            WHERE o.telegram_id = $1
+            ORDER BY o.id DESC
+            LIMIT 20
+        """, tg_id)
+
+
+async def get_invoice_by_order_id(order_id: int, tg_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetchrow("""
+            SELECT o.id, o.telegram_id, o.price, o.status, o.created_at, s.title
+            FROM orders o
+            JOIN services s ON s.id = o.service_id
+            WHERE o.id = $1 AND o.telegram_id = $2
+        """, order_id, tg_id)
+
+
+async def all_user_ids():
+    async with db_pool.acquire() as conn:
+        rows = await conn.fetch("SELECT telegram_id FROM users")
+        return [r["telegram_id"] for r in rows]
+
+
+# =========================
+# ADMIN HELPERS
+# =========================
+
+async def seed_sample_data():
+    async with db_pool.acquire() as conn:
+        count = await conn.fetchrow("SELECT COUNT(*) AS total FROM categories")
+        if int(count["total"]) == 0:
+            await conn.execute("""
+                INSERT INTO categories (name_en, name_zh, sort_order) VALUES
+                ('Bot Rental', '机器人租用', 1),
+                ('Custom Bot', '定制机器人', 2),
+                ('Group/Channel Setup', '群组/频道搭建', 3),
+                ('Telegram Automation', 'Telegram 自动化', 4),
+                ('Premium Gifts', '高级礼品', 5)
+            """)
+
+        svc_count = await conn.fetchrow("SELECT COUNT(*) AS total FROM services")
+        if int(svc_count["total"]) == 0:
+            await conn.execute("""
+                INSERT INTO services
+                (category_id, title, price, badge, desc_en, desc_zh, featured)
+                VALUES
+                (
+                    1, 'Monthly Bot Rental', 49, 'HOT',
+                    'Monthly rental bot package for sales, customer support and Telegram marketing.',
+                    '月租机器人套餐，适合销售、客服和 Telegram 营销。',
+                    TRUE
+                ),
+                (
+                    2, 'Custom Bot Development', 129, 'PREMIUM',
+                    'Custom Telegram bot development based on your business needs.',
+                    '根据您的业务需求定制开发 Telegram 机器人。',
+                    TRUE
+                ),
+                (
+                    3, 'Group/Channel Setup Pro', 39, 'POPULAR',
+                    'Professional setup for group/channel with menu, rules, welcome flow and optimization.',
+                    '专业搭建群组/频道，包含菜单、规则、欢迎流程和优化。',
+                    TRUE
+                ),
+                (
+                    4, 'Automation Package', 79, 'AUTO',
+                    'Legal Telegram automation: replies, forms, routing, mini CRM.',
+                    '合法 Telegram 自动化：回复、表单、分流、迷你 CRM。',
+                    FALSE
+                ),
+                (
+                    5, 'Premium Gift Assistance', 25, 'GIFT',
+                    'Support and consultation for valid premium gift related services.',
+                    '提供合法高级礼品相关服务的支持与咨询。',
+                    FALSE
+                )
+            """)
+
+
+async def add_category(name_en: str, name_zh: str):
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO categories (name_en, name_zh)
+            VALUES ($1, $2)
+        """, name_en, name_zh)
+
+
+async def add_service(category_id: int, title: str, price: float, badge: str, desc_en: str, desc_zh: str):
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO services
+            (category_id, title, price, badge, desc_en, desc_zh)
+            VALUES ($1, $2, $3, $4, $5, $6)
+        """, category_id, title, price, badge, desc_en, desc_zh)
+
+
+async def set_featured(service_id: int, featured: bool):
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            UPDATE services
+            SET featured = $1
+            WHERE id = $2
+        """, featured, service_id)
+
+
+async def set_balance(tg_id: int, amount: float):
+    async with db_pool.acquire() as conn:
+        user = await conn.fetchrow(
+            "SELECT * FROM users WHERE telegram_id = $1",
+            tg_id
+        )
+
+        if user:
+            await conn.execute("""
+                UPDATE users
+                SET balance = $1
+                WHERE telegram_id = $2
+            """, amount, tg_id)
+        else:
+            await conn.execute("""
+                INSERT INTO users (telegram_id, username, full_name, balance, language)
+                VALUES ($1, '', '', $2, 'zh')
+            """, tg_id, amount)
+
+
+async def set_promo_text(promo_text: str):
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO settings (key, value)
+            VALUES ('promo_text', $1)
+            ON CONFLICT (key)
+            DO UPDATE SET value = EXCLUDED.value
+        """, promo_text)
+
+
+async def list_services_admin():
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT id, category_id, title, price, featured
+            FROM services
+            ORDER BY id ASC
+        """)
+2) Sửa phần import trong file bot chính
+Ở file bot chính, bạn xóa nguyên block # DATABASE cũ đi, rồi thay bằng import này:
+
+from db import (
+    init_db,
+    get_or_create_user_from_tg,
+    get_user,
+    get_user_lang,
+    set_user_lang,
+    get_promo_text,
+    list_categories,
+    get_category,
+    list_featured_services,
+    list_services_by_category,
+    get_service,
+    create_order,
+    user_orders,
+    user_orders_count,
+    get_user_invoices,
+    get_invoice_by_order_id,
+    all_user_ids,
+    seed_sample_data,
+    add_category,
+    add_service,
+    set_featured,
+    set_balance,
+    set_promo_text,
+    list_services_admin,
+)
+Và xóa dòng này trong file chính:
+
+db_pool = None
+3) Sửa các command admin đang dùng db_pool.acquire()
+Vì giờ DB nằm trong db.py, nên mấy command admin bạn đổi như sau.
+
+/seed
+Thay toàn bộ hàm cũ bằng:
+
+@dp.message(Command("seed"))
+async def cmd_seed(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+
+    if not is_admin(message.from_user.id):
+        return await message.answer(t(lang, "admin_only"))
+
+    await seed_sample_data()
+    await message.answer(t(lang, "seed_done"))
+/addcategory
+@dp.message(Command("addcategory"))
+async def cmd_addcategory(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+
+    if not is_admin(message.from_user.id):
+        return await message.answer(t(lang, "admin_only"))
+
+    try:
+        raw = message.text.replace("/addcategory", "", 1).strip()
+        name_en, name_zh = [x.strip() for x in raw.split("|", 1)]
+
+        await add_category(name_en, name_zh)
+        await message.answer(t(lang, "category_added"))
+    except Exception:
+        await message.answer(t(lang, "bad_addcategory"))
+/addservice
+@dp.message(Command("addservice"))
+async def cmd_addservice(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+
+    if not is_admin(message.from_user.id):
+        return await message.answer(t(lang, "admin_only"))
+
+    try:
+        raw = message.text.replace("/addservice", "", 1).strip()
+        parts = [x.strip() for x in raw.split("|", 5)]
+
+        category_id = int(parts[0])
+        title = parts[1]
+        price = float(parts[2])
+        badge = parts[3]
+        desc_en = parts[4]
+        desc_zh = parts[5]
+
+        await add_service(category_id, title, price, badge, desc_en, desc_zh)
+        await message.answer(t(lang, "service_added"))
+    except Exception:
+        await message.answer(t(lang, "bad_addservice"))
+/feature
+@dp.message(Command("feature"))
+async def cmd_feature(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+
+    if not is_admin(message.from_user.id):
+        return await message.answer(t(lang, "admin_only"))
+
+    try:
+        raw = message.text.replace("/feature", "", 1).strip()
+        service_id, val = [x.strip() for x in raw.split("|", 1)]
+        featured = val == "1"
+
+        await set_featured(int(service_id), featured)
+        await message.answer(t(lang, "feature_updated"))
+    except Exception:
+        await message.answer(t(lang, "bad_feature"))
+/setbalance
+@dp.message(Command("setbalance"))
+async def cmd_setbalance(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+
+    if not is_admin(message.from_user.id):
+        return await message.answer(t(lang, "admin_only"))
+
+    try:
+        raw = message.text.replace("/setbalance", "", 1).strip()
+        tg_id, amount = [x.strip() for x in raw.split("|", 1)]
+
+        await set_balance(int(tg_id), float(amount))
+        await message.answer(t(lang, "balance_updated"))
+    except Exception:
+        await message.answer(t(lang, "bad_setbalance"))
+/promo
+@dp.message(Command("promo"))
+async def cmd_promo(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+
+    if not is_admin(message.from_user.id):
+        return await message.answer(t(lang, "admin_only"))
+
+    promo_text = message.text.replace("/promo", "", 1).strip()
+    if not promo_text:
+        promo_text = t(lang, "default_promo")
+
+    await set_promo_text(promo_text)
+    await message.answer(t(lang, "promo_updated"))
+/services
+@dp.message(Command("services"))
+async def cmd_services(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+
+    if not is_admin(message.from_user.id):
+        return await message.answer(t(lang, "admin_only"))
+
+    rows = await list_services_admin()
+
+    if not rows:
+        return await message.answer(t(lang, "services_empty"))
+
+    text = t(lang, "services_admin_title")
+    for row in rows:
+        text += t(
+            lang,
+            "services_admin_line",
+            id=row["id"],
+            title=row["title"],
+            price=float(row["price"]),
+            category_id=row["category_id"],
+            featured=row["featured"]
+        )
+
+    await message.answer(text)
+4) Cài package nếu chưa có
+pip install asyncpg python-dotenv aiogram
+5) File .env cần có
+BOT_TOKEN=your_bot_token
+DATABASE_URL=postgresql://user:password@host:5432/dbname
+ADMIN_ID=123456789
+SUPPORT_USERNAME=@ZZB339
+CHANNEL_URL=https://t.me/ZXZ368
+SHOP_NAME=♛『 至尊机甲 』
+START_BANNER_URL=
+PAYMENT_TEXT=USDT TRC20\nWallet: YOUR_WALLET_ADDRESS\nAfter payment, please send receipt to support.
+6) Gợi ý cấu trúc file
+project/
+│
+├── bot.py
+├── db.py
+├── .env
+└── requirements.txt
+Nếu muốn, mình có thể làm tiếp cho bạn bản full hoàn chỉnh bot.py đã sửa sẵn để import db.py luôn, tức là bạn chỉ việc copy-paste chạy.
+
+Không tệp nào được chọnKhông tệp nào được chọn
+
+Lỗi này rất rõ vro:
+
+Nguyên nhân
+Bot của bạn đang vẫn chạy init_db() trong bot.py, và trong hàm đó có dòng kiểu:
+
+db_pool = await asyncpg.create_pool(DATABASE_URL)
+nhưng file bot.py không có import asyncpg, nên báo:
+
+NameError: name 'asyncpg' is not defined
+Cách sửa
+Cách 1: Sửa nhanh
+Nếu bạn vẫn muốn giữ phần database ngay trong bot.py, thì thêm lại dòng này ở đầu file:
+
+import asyncpg
+Ví dụ phần import đầu file phải có:
+
+import os
+import asyncio
+from dotenv import load_dotenv
+import asyncpg
+Cách 2: Sửa đúng nếu bạn đang tách db.py
+Nếu bạn đã tạo db.py theo hướng mình gửi, thì không được giữ lại block # DATABASE cũ trong bot.py nữa.
+
+Nghĩa là trong bot.py bạn phải:
+xóa:
+import asyncpg
+db_pool = None
+toàn bộ các hàm trong phần # DATABASE
+init_db
+get_or_create_user_from_tg
+get_user
+get_user_lang
+set_user_lang
+...
+thay bằng import từ db.py
+Bạn đang bị lỗi vì bot.py chưa tách xong
+Từ ảnh lỗi:
+
+lỗi nằm ở /app/bot.py
+trong init_db()
+tức là bot.py của bạn vẫn còn hàm init_db() cũ
+=> nghĩa là bạn mới chỉ thêm db.py, nhưng chưa sửa bot.py hoàn toàn.
+
+Sửa chuẩn cho bot.py
+1) Ở đầu file bot.py, đổi phần import thành:
+import os
+import asyncio
+from dotenv import load_dotenv
+
+from aiogram import Bot, Dispatcher, F
+from aiogram.filters import Command
+from aiogram.types import (
+    Message,
+    CallbackQuery,
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+)
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+from db import (
+    init_db,
+    get_or_create_user_from_tg,
+    get_user,
+    get_user_lang,
+    set_user_lang,
+    get_promo_text,
+    list_categories,
+    get_category,
+    list_featured_services,
+    list_services_by_category,
+    get_service,
+    create_order,
+    user_orders,
+    user_orders_count,
+    get_user_invoices,
+    get_invoice_by_order_id,
+    all_user_ids,
+    seed_sample_data,
+    add_category,
+    add_service,
+    set_featured,
+    set_balance,
+    set_promo_text,
+    list_services_admin,
+)
+2) Xóa dòng này trong bot.py
+db_pool = None
+3) Xóa toàn bộ section này trong bot.py
+Tức là xóa từ:
+
+# =========================
+# DATABASE
+# =========================
+cho tới ngay trước:
+
+# =========================
+# UI HELPERS
+# =========================
+4) Sửa các command admin
+Vì nếu không, mấy lệnh admin vẫn còn dùng db_pool.acquire() trong bot.py.
+
+Bạn phải thay bằng bản dùng hàm từ db.py.
+
+/seed
+@dp.message(Command("seed"))
+async def cmd_seed(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+
+    if not is_admin(message.from_user.id):
+        return await message.answer(t(lang, "admin_only"))
+
+    await seed_sample_data()
+    await message.answer(t(lang, "seed_done"))
+/addcategory
+@dp.message(Command("addcategory"))
+async def cmd_addcategory(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+
+    if not is_admin(message.from_user.id):
+        return await message.answer(t(lang, "admin_only"))
+
+    try:
+        raw = message.text.replace("/addcategory", "", 1).strip()
+        name_en, name_zh = [x.strip() for x in raw.split("|", 1)]
+
+        await add_category(name_en, name_zh)
+        await message.answer(t(lang, "category_added"))
+    except Exception:
+        await message.answer(t(lang, "bad_addcategory"))
+/addservice
+@dp.message(Command("addservice"))
+async def cmd_addservice(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+
+    if not is_admin(message.from_user.id):
+        return await message.answer(t(lang, "admin_only"))
+
+    try:
+        raw = message.text.replace("/addservice", "", 1).strip()
+        parts = [x.strip() for x in raw.split("|", 5)]
+
+        category_id = int(parts[0])
+        title = parts[1]
+        price = float(parts[2])
+        badge = parts[3]
+        desc_en = parts[4]
+        desc_zh = parts[5]
+
+        await add_service(category_id, title, price, badge, desc_en, desc_zh)
+        await message.answer(t(lang, "service_added"))
+    except Exception:
+        await message.answer(t(lang, "bad_addservice"))
+/feature
+@dp.message(Command("feature"))
+async def cmd_feature(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+
+    if not is_admin(message.from_user.id):
+        return await message.answer(t(lang, "admin_only"))
+
+    try:
+        raw = message.text.replace("/feature", "", 1).strip()
+        service_id, val = [x.strip() for x in raw.split("|", 1)]
+        featured = val == "1"
+
+        await set_featured(int(service_id), featured)
+        await message.answer(t(lang, "feature_updated"))
+    except Exception:
+        await message.answer(t(lang, "bad_feature"))
+/setbalance
+@dp.message(Command("setbalance"))
+async def cmd_setbalance(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+
+    if not is_admin(message.from_user.id):
+        return await message.answer(t(lang, "admin_only"))
+
+    try:
+        raw = message.text.replace("/setbalance", "", 1).strip()
+        tg_id, amount = [x.strip() for x in raw.split("|", 1)]
+
+        await set_balance(int(tg_id), float(amount))
+        await message.answer(t(lang, "balance_updated"))
+    except Exception:
+        await message.answer(t(lang, "bad_setbalance"))
+/promo
+@dp.message(Command("promo"))
+async def cmd_promo(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+
+    if not is_admin(message.from_user.id):
+        return await message.answer(t(lang, "admin_only"))
+
+    promo_text = message.text.replace("/promo", "", 1).strip()
+    if not promo_text:
+        promo_text = t(lang, "default_promo")
+
+    await set_promo_text(promo_text)
+    await message.answer(t(lang, "promo_updated"))
+/services
+@dp.message(Command("services"))
+async def cmd_services(message: Message):
+    await get_or_create_user_from_tg(message.from_user)
+    lang = await get_user_lang(message.from_user.id)
+
+    if not is_admin(message.from_user.id):
+        return await message.answer(t(lang, "admin_only"))
+
+    rows = await list_services_admin()
+
+    if not rows:
+        return await message.answer(t(lang, "services_empty"))
+
+    text = t(lang, "services_admin_title")
+    for row in rows:
+        text += t(
+            lang,
+            "services_admin_line",
+            id=row["id"],
+            title=row["title"],
+            price=float(row["price"]),
+            category_id=row["category_id"],
+            featured=row["featured"]
+        )
+
+    await message.answer(text)
+Nếu bạn chỉ muốn bot chạy ngay bây giờ
+Thì nhanh nhất:
+
+Thêm lại vào bot.py:
+import asyncpg
+Rồi chạy lại.
+
+Nhưng đó chỉ là vá lỗi tạm.
+Nếu bạn muốn dùng db.py riêng thì vẫn phải làm đúng các bước mình ghi phía trên.
+
+Kết luận
+Lỗi của bạn là:
+bot.py vẫn còn code DB cũ
+nhưng lại không import asyncpg
+Fix:
+Nhanh: thêm import asyncpg
+Đúng: xóa section DATABASE trong bot.py, rồi import tất cả từ db.py
+Nếu muốn, mình có thể làm luôn cho bạn 1 file bot.py hoàn chỉnh đã sửa sạch để chạy với db.py, bạn chỉ cần copy-paste là deploy được.
+
+Không tệp nào được chọnKhông tệp nào được chọn
+
+Đúng rồi vro, giờ bot của bạn đã qua lỗi DB, nhưng đang dính lỗi khác:
+
+Lỗi hiện tại
+TelegramConflictError:
+can't use getUpdates method while webhook is active;
+use deleteWebhook to delete the webhook first
+hoặc:
+
+Conflict: terminated by other getUpdates request;
+make sure that only one bot instance is running
+Nghĩa là gì?
+Bot của bạn đang chạy bằng:
+
+await dp.start_polling(bot)
+tức là polling.
+
+Nhưng phía Telegram hiện đang thấy bot của bạn:
+
+hoặc đang có webhook active
+hoặc đang có 2 process / 2 container cùng chạy bot
+hoặc cả hai
+Nên Telegram chặn lại.
+
+Cách fix chuẩn
+Cách 1: Xóa webhook trước khi polling
+Trong main() của bạn, thêm dòng này trước start_polling:
+
+async def main():
+    await init_db()
+    await bot.delete_webhook(drop_pending_updates=True)
+    print("Bot is running...")
+    await dp.start_polling(bot)
+Nếu muốn an toàn hơn
+Bạn có thể dùng:
+
+async def main():
+    await init_db()
+    await bot.delete_webhook(drop_pending_updates=True)
+    print("Bot is running...")
+    await dp.start_polling(bot, skip_updates=True)
+Cách 2: Kiểm tra có chạy 2 instance không
+Trong log của bạn có dòng:
+
+make sure that only one bot instance is running
+Nghĩa là có thể:
+
+bạn đang deploy 2 service cùng dùng 1 BOT_TOKEN
+hoặc 1 service cũ chưa tắt hẳn
+hoặc local máy bạn đang chạy bot, đồng thời server cũng đang chạy
+Bạn cần kiểm tra:
+có đang mở bot trên máy local không
+có 2 container / 2 replica không
+có 2 service cùng dùng chung token không
+Nếu dùng Render / Railway / VPS:
+Đảm bảo chỉ có 1 process chạy bot này.
+
+Cách 3: Nếu trước đó bạn từng set webhook
+Nếu trước đó bot của bạn chạy kiểu webhook, Telegram vẫn giữ webhook cũ.
+
+Bạn có thể xóa webhook thủ công bằng link:
+
+https://api.telegram.org/bot<BOT_TOKEN>/deleteWebhook?drop_pending_updates=true
+Ví dụ:
+
+https://api.telegram.org/bot123456:ABCDEF/deleteWebhook?drop_pending_updates=true
+Mở link đó trên trình duyệt, nếu ra:
+
+{"ok":true,"result":true,"description":"Webhook was deleted"}
+thì xong.
+
+Sửa trực tiếp vào code của bạn
+Thay main() thành:
+async def main():
+    await init_db()
+    await bot.delete_webhook(drop_pending_updates=True)
+    print("Bot is running...")
+    await dp.start_polling(bot)
+Nếu vẫn lỗi sau khi thêm delete_webhook
+Thì gần như chắc chắn là đang có 2 nơi chạy cùng 1 bot token.
+
+Lúc đó làm như này:
+stop toàn bộ bot đang chạy
+deploy lại chỉ 1 instance
+đảm bảo không chạy local nữa
+restart service
+Tóm gọn fix nhanh
+Chỉ cần thêm dòng này:
+await bot.delete_webhook(drop_pending_updates=True)
+vào trước:
+
+await dp.start_polling(bot)
+Mẫu hoàn chỉnh
+async def main():
+    await init_db()
+    await bot.delete_webhook(drop_pending_updates=True)
+    print("Bot is running...")
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+Nếu muốn, mình có thể viết luôn cho bạn bản bot.py final đã fix cả db.py + webhook conflict, để bạn copy paste deploy phát chạy luôn.
+
+Không tệp nào được chọnKhông tệp nào được chọn
+
+Ảnh này log quá nhỏ nên mình không đọc được dòng lỗi cuối cùng 100%, nhưng nhìn kiểu traceback thì khả năng rất cao bot đang lỗi ở các đoạn callback dùng:
+
+await call.message.edit_text(...)
+Trong code của bạn có rất nhiều chỗ như vậy.
+
+2 lỗi rất hay gặp với code này
+1) message is not modified
+Khi bạn edit lại đúng y chang nội dung cũ.
+
+2) there is no text in the message to edit
+Khi message gốc là photo/caption hoặc loại message không edit text được.
+
+Cách fix chắc ăn
+Bước 1: thêm import
+Trong bot.py thêm:
+
+from aiogram.exceptions import TelegramBadRequest
+Bước 2: tạo hàm safe_edit
+Đặt dưới phần helper:
+
+async def safe_edit(call: CallbackQuery, text: str, reply_markup=None):
+    try:
+        if call.message.text:
+            await call.message.edit_text(text, reply_markup=reply_markup)
+        elif call.message.caption is not None:
+            await call.message.edit_caption(caption=text, reply_markup=reply_markup)
+        else:
+            await call.message.answer(text, reply_markup=reply_markup)
+
+    except TelegramBadRequest as e:
+        err = str(e).lower()
+
+        if "message is not modified" in err:
+            return
+
+        if "there is no text in the message to edit" in err:
+            await call.message.answer(text, reply_markup=reply_markup)
+            return
+
+        if "message can't be edited" in err:
+            await call.message.answer(text, reply_markup=reply_markup)
+            return
+
+        raise
+Bước 3: thay các chỗ edit_text(...) bằng safe_edit(...)
+Ví dụ:
+
+send_categories
+Đổi từ:
+
+await target.message.edit_text(t(lang, "catalog_title"), reply_markup=kb.as_markup())
+thành:
+
+await safe_edit(target, t(lang, "catalog_title"), reply_markup=kb.as_markup())
+send_featured
+Đổi:
+
+await target.message.edit_text(t(lang, "hot_title"), reply_markup=kb.as_markup())
+thành:
+
+await safe_edit(target, t(lang, "hot_title"), reply_markup=kb.as_markup())
+send_services_by_category
+Đổi:
+
+await call.message.edit_text(
+    t(lang, "services_title", category=category_name(category, lang)),
+    reply_markup=kb.as_markup()
+)
+thành:
+
+await safe_edit(
+    call,
+    t(lang, "services_title", category=category_name(category, lang)),
+    reply_markup=kb.as_markup()
+)
+send_service_detail
+Đổi:
+
+await call.message.edit_text(
+    t(
+        lang,
+        "service_detail",
+        title=row["title"],
+        badge=row["badge"],
+        price=float(row["price"]),
+        description=service_desc(row, lang)
+    ),
+    reply_markup=kb
+)
+thành:
+
+await safe_edit(
+    call,
+    t(
+        lang,
+        "service_detail",
+        title=row["title"],
+        badge=row["badge"],
+        price=float(row["price"]),
+        description=service_desc(row, lang)
+    ),
+    reply_markup=kb
+)
+send_invoices_list
+Đổi:
+
+await target.message.edit_text(t(lang, "invoices_title"), reply_markup=kb.as_markup())
+thành:
+
+await safe_edit(target, t(lang, "invoices_title"), reply_markup=kb.as_markup())
+send_invoice_detail
+Đổi:
+
+await call.message.edit_text(text, reply_markup=kb)
+thành:
+
+await safe_edit(call, text, reply_markup=kb)
+cb_language
+Đổi:
+
+await call.message.edit_text(t(lang, f"language_updated_{lang}"))
+thành:
+
+await safe_edit(call, t(lang, f"language_updated_{lang}"))
+Thêm 1 chỗ nên sửa nữa
+Trong send_categories, send_featured, send_invoices_list, nếu target là CallbackQuery thì dùng safe_edit, còn Message thì vẫn answer().
+
+Ví dụ chuẩn:
+
+async def send_categories(target, lang: str):
+    rows = await list_categories()
+    if not rows:
+        if isinstance(target, Message):
+            await target.answer(t(lang, "no_categories"))
+        else:
+            await safe_edit(target, t(lang, "no_categories"))
+        return
+
+    kb = InlineKeyboardBuilder()
+    for row in rows:
+        kb.button(text=category_name(row, lang), callback_data=f"cat:{row['id']}")
+    kb.button(text=t(lang, "back_menu"), callback_data="menu")
+    kb.adjust(1)
+
+    if isinstance(target, Message):
+        await target.answer(t(lang, "catalog_title"), reply_markup=kb.as_markup())
+    else:
+        await safe_edit(target, t(lang, "catalog_title"), reply_markup=kb.as_markup())
+Ngoài ra, vẫn nên giữ webhook fix này
+Trong main():
+
+async def main():
+    await init_db()
+    await bot.delete_webhook(drop_pending_updates=True)
+    print("Bot is running...")
+    await dp.start_polling(bot)
+Quan trọng
+Để mình chẩn đoán đúng 100%, bạn hãy gửi cho mình dòng cuối cùng của traceback dưới dạng text, không phải ảnh.
+
+Chỉ cần copy đoạn cuối kiểu:
+
+aiogram.exceptions.TelegramBadRequest: Telegram server says - Bad Request: ...
+là mình chỉ đúng ngay lỗi nào và sửa đúng dòng đó cho bạn.
+
+Nếu muốn, mình có thể làm luôn cho bạn bản bot.py full đã gắn safe_edit vào toàn bộ code.
+
+Không tệp nào được chọnKhông tệp nào được chọn
+bot.py full đã gắn safe_edit vào toàn bộ code.
+
+Đây vro — `bot.py` full đã:
+
+
+
+- tách DB sang `db.py`
+
+- thêm `safe_edit()`
+
+- fix webhook conflict
+
+- sửa toàn bộ admin command dùng hàm từ `db.py`
+
+- thay các chỗ `edit_text()` dễ lỗi bằng `safe_edit()`
+
+
+
+## `bot.py`
+
+
+
+```python
+
+import os
+
+import asyncio
+
+from dotenv import load_dotenv
+
+
+
+from aiogram import Bot, Dispatcher, F
+
+from aiogram.filters import Command
+
+from aiogram.types import (
+
+    Message,
+
+    CallbackQuery,
+
+    ReplyKeyboardMarkup,
+
+    KeyboardButton,
+
+    InlineKeyboardMarkup,
+
+    InlineKeyboardButton,
+
+)
+
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+from aiogram.exceptions import TelegramBadRequest
+
+
+
+from db import (
+
+    init_db,
+
+    get_or_create_user_from_tg,
+
+    get_user,
+
+    get_user_lang,
+
+    set_user_lang,
+
+    get_promo_text,
+
+    list_categories,
+
+    get_category,
+
+    list_featured_services,
+
+    list_services_by_category,
+
+    get_service,
+
+    create_order,
+
+    user_orders,
+
+    user_orders_count,
+
+    get_user_invoices,
+
+    get_invoice_by_order_id,
+
+    all_user_ids,
+
+    seed_sample_data,
+
+    add_category,
+
+    add_service,
+
+    set_featured,
+
+    set_balance,
+
+    set_promo_text,
+
+    list_services_admin,
+
+)
+
+
+
+load_dotenv()
+
+
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+
+SUPPORT_USERNAME = os.getenv("SUPPORT_USERNAME", "@ZZB339")
+
+CHANNEL_URL = os.getenv("CHANNEL_URL", "https://t.me/ZXZ368")
+
+SHOP_NAME = os.getenv("SHOP_NAME", "♛『 至尊机甲 』")
+
+START_BANNER_URL = os.getenv("START_BANNER_URL", "").strip()
+
+PAYMENT_TEXT = os.getenv(
+
+    "PAYMENT_TEXT",
+
+    "USDT TRC20\nWallet: YOUR_WALLET_ADDRESS\nAfter payment, please send receipt to support."
+
+)
+
+
+
+if not BOT_TOKEN:
+
+    raise ValueError("Missing BOT_TOKEN")
+
+if not DATABASE_URL:
+
+    raise ValueError("Missing DATABASE_URL")
+
+
+
+SUPPORT_LINK = f"https://t.me/{SUPPORT_USERNAME.lstrip('@')}"
+
+
+
+bot = Bot(token=BOT_TOKEN)
+
+dp = Dispatcher()
+
+
+
+
+
+# =========================
+
+# TRANSLATIONS (EN + ZH)
+
+# =========================
+
+
+
+TRANSLATIONS = {
+
+    "en": {
+
+        "welcome": (
+
+            f"🔥 Welcome to {SHOP_NAME}\n\n"
+
+            "✅ Professional Telegram services\n"
+
+            "✅ Fast handling and reliable support\n"
+
+            "✅ Premium service packages for individuals and communities\n\n"
+
+            "🎁 Today’s promotions are live\n"
+
+            "👇 Please choose an option below to begin\n\n"
+
+            f"🆘 Support: {SUPPORT_USERNAME}\n"
+
+            f"📢 Channel: @ZXZ368"
+
+        ),
+
+        "choose_action": "Choose an option below:",
+
+        "btn_hot": "🔥 Hot Services",
+
+        "btn_catalog": "🛍 Catalog",
+
+        "btn_promo": "💎 Promotions",
+
+        "btn_topup": "💳 Top Up",
+
+        "btn_balance": "💰 Balance",
+
+        "btn_orders": "📦 Orders",
+
+        "btn_invoice": "🧾 Invoices",
+
+        "btn_language": "🌍 Language",
+
+        "btn_support": "🆘 Support",
+
+        "btn_channel": "📢 Channel",
+
+        "btn_center": "👤 My Center",
+
+
+
+        "language_title": "🌍 Please choose your language:",
+
+        "language_updated_en": "✅ Language changed to English.",
+
+        "language_updated_zh": "✅ 语言已切换为中文。",
+
+
+
+        "back": "⬅️ Back",
+
+        "back_menu": "🏠 Main Menu",
+
+        "buy_now": "🛒 Buy Now",
+
+        "contact_support": "🆘 Contact Support",
+
+        "open_channel": "📢 Open Channel",
+
+        "topup_now": "💳 Top Up Now",
+
+        "view_invoice": "🧾 View Invoice",
+
+
+
+        "hot_title": "🔥 Featured services\n\nChoose a package below:",
+
+        "catalog_title": "🛍 Service categories\n\nPlease choose a category:",
+
+        "services_title": "📂 {category}\n\nChoose a service to view:",
+
+        "service_detail": (
+
+            "✨ {title}\n"
+
+            "🏷 {badge}\n"
+
+            "💵 Price: {price:.2f} USDT\n\n"
+
+            "{description}\n\n"
+
+            "📌 After payment, admin will process your order and contact you."
+
+        ),
+
+
+
+        "promo_title": "💎 Today's promotions\n\n{promo}",
+
+        "default_promo": (
+
+            "🎁 Top up 100 USDT: get 5% bonus\n"
+
+            "🎁 Top up 300 USDT: get 10% bonus\n"
+
+            "🎁 Selected service packages are on limited discount"
+
+        ),
+
+
+
+        "balance_text": "💰 Current balance: {balance:.2f} USDT",
+
+        "balance_not_enough": "Insufficient balance. Please top up to continue.",
+
+        "buy_success": (
+
+            "✅ Order created successfully\n\n"
+
+            "📦 Service: {title}\n"
+
+            "💵 Price: {price:.2f} USDT\n"
+
+            "🧾 Order ID: #{order_id}\n\n"
+
+            "Admin will process your request soon."
+
+        ),
+
+
+
+        "orders_empty": "You have no orders yet.",
+
+        "orders_title": "📦 Your latest 10 orders:\n\n",
+
+        "orders_line": "#{id} - {title} - {price:.2f} USDT - {status} - {created_at}\n",
+
+
+
+        "invoices_empty": "You do not have any invoices yet.",
+
+        "invoices_title": "🧾 Your recent invoices:\n\nChoose one invoice to view details.",
+
+        "invoice_paid": "Paid",
+
+        "invoice_detail": (
+
+            "🧾 INVOICE\n\n"
+
+            "Invoice No: {invoice_no}\n"
+
+            "Order ID: #{order_id}\n"
+
+            "Customer: {name}\n"
+
+            "User ID: {user_id}\n"
+
+            "Service: {service}\n"
+
+            "Amount: {amount:.2f} USDT\n"
+
+            "Status: {status}\n"
+
+            "Created At: {created_at}\n\n"
+
+            "Support: {support}"
+
+        ),
+
+
+
+        "center_text": (
+
+            "🌞 Hello, {name}\n\n"
+
+            "🆔 User ID: {user_id}\n"
+
+            "📅 Registered: {created_at}\n"
+
+            "💰 Balance: {balance:.2f} USDT\n"
+
+            "💸 Total spent: {spent:.2f} USDT\n"
+
+            "📦 Total orders: {orders}\n\n"
+
+            "Please choose an option below."
+
+        ),
+
+
+
+        "support_text": (
+
+            "🆘 Customer Support\n\n"
+
+            f"• Support: {SUPPORT_USERNAME}\n"
+
+            f"• Channel: {CHANNEL_URL}\n\n"
+
+            "If you need service consultation or payment confirmation, please contact support."
+
+        ),
+
+
+
+        "channel_text": "📢 Official channel of the shop:",
+
+        "topup_title": "💳 Top Up\n\nChoose an amount below or contact support after payment.",
+
+        "topup_info": (
+
+            "💳 Top up {amount} USDT\n\n"
+
+            "{payment_text}\n\n"
+
+            f"🆘 Support: {SUPPORT_USERNAME}\n"
+
+            "📌 Send your Telegram ID: {user_id}"
+
+        ),
+
+
+
+        "no_categories": "No categories yet.",
+
+        "no_services": "No services in this category yet.",
+
+        "service_not_found": "Service not found.",
+
+
+
+        "admin_only": "You are not allowed to use this command.",
+
+        "admin_help": (
+
+            "⚙️ Admin commands\n\n"
+
+            "/seed\n"
+
+            "/addcategory name_en | name_zh\n"
+
+            "/addservice category_id | title | price | badge | desc_en | desc_zh\n"
+
+            "/feature service_id | 1 or 0\n"
+
+            "/setbalance telegram_id | amount\n"
+
+            "/promo promotion text\n"
+
+            "/broadcast message\n"
+
+            "/services"
+
+        ),
+
+        "seed_done": "✅ Sample data created.",
+
+        "category_added": "✅ Category added.",
+
+        "service_added": "✅ Service added.",
+
+        "feature_updated": "✅ Featured updated.",
+
+        "balance_updated": "✅ Balance updated.",
+
+        "promo_updated": "✅ Promotion updated.",
+
+        "broadcast_done": "✅ Broadcast sent.\nSuccess: {ok}\nFailed: {fail}",
+
+        "services_empty": "No services yet.",
+
+        "services_admin_title": "📋 Service list:\n\n",
+
+        "services_admin_line": "ID {id} | {title} | {price:.2f} USDT | Cat {category_id} | Featured: {featured}\n",
+
+
+
+        "bad_addcategory": "Wrong syntax.\nExample:\n/addcategory Bot Rental | 机器人租用",
+
+        "bad_addservice": "Wrong syntax.\nExample:\n/addservice 1 | Monthly Bot Rental | 49 | HOT | English description | 中文描述",
+
+        "bad_feature": "Wrong syntax.\nExample:\n/feature 1 | 1",
+
+        "bad_setbalance": "Wrong syntax.\nExample:\n/setbalance 123456789 | 100",
+
+        "broadcast_empty": "Broadcast content is empty."
+
+    },
+
+
+
+    "zh": {
+
+        "welcome": (
+
+            f"🔥 欢迎来到 {SHOP_NAME}\n\n"
+
+            "✅ 专业 Telegram 服务\n"
+
+            "✅ 处理高效，支持可靠\n"
+
+            "✅ 为个人与社群提供优质服务套餐\n\n"
+
+            "🎁 今日优惠已开启\n"
+
+            "👇 请选择下方功能开始\n\n"
+
+            f"🆘 客服: {SUPPORT_USERNAME}\n"
+
+            f"📢 频道: @ZXZ368"
+
+        ),
+
+        "choose_action": "请选择下面的功能：",
+
+        "btn_hot": "🔥 热门服务",
+
+        "btn_catalog": "🛍 服务目录",
+
+        "btn_promo": "💎 优惠活动",
+
+        "btn_topup": "💳 充值",
+
+        "btn_balance": "💰 余额",
+
+        "btn_orders": "📦 订单",
+
+        "btn_invoice": "🧾 发票",
+
+        "btn_language": "🌍 语言",
+
+        "btn_support": "🆘 客服",
+
+        "btn_channel": "📢 频道",
+
+        "btn_center": "👤 个人中心",
+
+
+
+        "language_title": "🌍 请选择语言：",
+
+        "language_updated_en": "✅ Language changed to English.",
+
+        "language_updated_zh": "✅ 语言已切换为中文。",
+
+
+
+        "back": "⬅️ 返回",
+
+        "back_menu": "🏠 主菜单",
+
+        "buy_now": "🛒 立即购买",
+
+        "contact_support": "🆘 联系客服",
+
+        "open_channel": "📢 打开频道",
+
+        "topup_now": "💳 立即充值",
+
+        "view_invoice": "🧾 查看发票",
+
+
+
+        "hot_title": "🔥 热门服务\n\n请选择下面的套餐：",
+
+        "catalog_title": "🛍 服务分类\n\n请选择一个分类：",
+
+        "services_title": "📂 {category}\n\n请选择要查看的服务：",
+
+        "service_detail": (
+
+            "✨ {title}\n"
+
+            "🏷 {badge}\n"
+
+            "💵 价格: {price:.2f} USDT\n\n"
+
+            "{description}\n\n"
+
+            "📌 付款后，管理员将处理您的订单并联系您。"
+
+        ),
+
+
+
+        "promo_title": "💎 今日优惠\n\n{promo}",
+
+        "default_promo": (
+
+            "🎁 充值 100 USDT：赠送 5%\n"
+
+            "🎁 充值 300 USDT：赠送 10%\n"
+
+            "🎁 部分服务套餐限时优惠中"
+
+        ),
+
+
+
+        "balance_text": "💰 当前余额: {balance:.2f} USDT",
+
+        "balance_not_enough": "余额不足，请先充值。",
+
+        "buy_success": (
+
+            "✅ 订单创建成功\n\n"
+
+            "📦 服务: {title}\n"
+
+            "💵 价格: {price:.2f} USDT\n"
+
+            "🧾 订单号: #{order_id}\n\n"
+
+            "管理员会尽快处理您的需求。"
+
+        ),
+
+
+
+        "orders_empty": "您还没有订单。",
+
+        "orders_title": "📦 最近 10 个订单：\n\n",
+
+        "orders_line": "#{id} - {title} - {price:.2f} USDT - {status} - {created_at}\n",
+
+
+
+        "invoices_empty": "您还没有任何发票。",
+
+        "invoices_title": "🧾 您最近的发票：\n\n请选择一个发票查看详情。",
+
+        "invoice_paid": "已支付",
+
+        "invoice_detail": (
+
+            "🧾 发票\n\n"
+
+            "发票号: {invoice_no}\n"
+
+            "订单号: #{order_id}\n"
+
+            "客户: {name}\n"
+
+            "用户ID: {user_id}\n"
+
+            "服务: {service}\n"
+
+            "金额: {amount:.2f} USDT\n"
+
+            "状态: {status}\n"
+
+            "时间: {created_at}\n\n"
+
+            "客服: {support}"
+
+        ),
+
+
+
+        "center_text": (
+
+            "🌞 您好，{name}\n\n"
+
+            "🆔 用户ID: {user_id}\n"
+
+            "📅 注册时间: {created_at}\n"
+
+            "💰 余额: {balance:.2f} USDT\n"
+
+            "💸 总消费: {spent:.2f} USDT\n"
+
+            "📦 总订单: {orders}\n\n"
+
+            "请选择下面的功能。"
+
+        ),
+
+
+
+        "support_text": (
+
+            "🆘 客户支持\n\n"
+
+            f"• 客服: {SUPPORT_USERNAME}\n"
+
+            f"• 频道: {CHANNEL_URL}\n\n"
+
+            "如果您需要服务咨询或付款确认，请联系客服。"
+
+        ),
+
+
+
+        "channel_text": "📢 商店官方频道：",
+
+        "topup_title": "💳 充值\n\n请选择金额，付款后请联系客户支持。",
+
+        "topup_info": (
+
+            "💳 充值 {amount} USDT\n\n"
+
+            "{payment_text}\n\n"
+
+            f"🆘 客服: {SUPPORT_USERNAME}\n"
+
+            "📌 发送您的 Telegram ID: {user_id}"
+
+        ),
+
+
+
+        "no_categories": "暂无分类。",
+
+        "no_services": "该分类下暂无服务。",
+
+        "service_not_found": "未找到服务。",
+
+
+
+        "admin_only": "您没有权限使用此命令。",
+
+        "admin_help": (
+
+            "⚙️ 管理员命令\n\n"
+
+            "/seed\n"
+
+            "/addcategory name_en | name_zh\n"
+
+            "/addservice category_id | title | price | badge | desc_en | desc_zh\n"
+
+            "/feature service_id | 1 或 0\n"
+
+            "/setbalance telegram_id | amount\n"
+
+            "/promo 优惠内容\n"
+
+            "/broadcast 内容\n"
+
+            "/services"
+
+        ),
+
+        "seed_done": "✅ 示例数据已创建。",
+
+        "category_added": "✅ 已添加分类。",
+
+        "service_added": "✅ 已添加服务。",
+
+        "feature_updated": "✅ 已更新热门状态。",
+
+        "balance_updated": "✅ 余额已更新。",
+
+        "promo_updated": "✅ 已更新优惠内容。",
+
+        "broadcast_done": "✅ 群发完成。\n成功: {ok}\n失败: {fail}",
+
+        "services_empty": "暂无服务。",
+
+        "services_admin_title": "📋 服务列表：\n\n",
+
+        "services_admin_line": "ID {id} | {title} | {price:.2f} USDT | 分类 {category_id} | 热门: {featured}\n",
+
+
+
+        "bad_addcategory": "格式错误。\n例如：\n/addcategory Bot Rental | 机器人租用",
+
+        "bad_addservice": "格式错误。\n例如：\n/addservice 1 | Monthly Bot Rental | 49 | HOT | English description | 中文描述",
+
+        "bad_feature": "格式错误。\n例如：\n/feature 1 | 1",
+
+        "bad_setbalance": "格式错误。\n例如：\n/setbalance 123456789 | 100",
+
+        "broadcast_empty": "群发内容为空。"
+
+    }
+
+}
+
+
+
+
+
+def t(lang: str, key: str, **kwargs):
+
+    lang = lang if lang in TRANSLATIONS else "zh"
+
+    text = TRANSLATIONS[lang].get(key, TRANSLATIONS["zh"].get(key, key))
+
+    return text.format(**kwargs) if kwargs else text
+
+
+
+
+
+def match_key(text: str, key: str):
+
+    if not text:
+
+        return False
+
+    return text in [TRANSLATIONS[lang][key] for lang in TRANSLATIONS]
+
+
+
+
+
+def make_invoice_no(order_id: int, created_at):
+
+    return f"INV-{created_at:%Y%m%d}-{order_id:06d}"
+
+
+
+
+
+# =========================
+
+# KEYBOARDS
+
+# =========================
+
+
+
+def main_menu(lang: str):
+
+    return ReplyKeyboardMarkup(
+
+        keyboard=[
+
+            [KeyboardButton(text=t(lang, "btn_hot")), KeyboardButton(text=t(lang, "btn_catalog"))],
+
+            [KeyboardButton(text=t(lang, "btn_promo")), KeyboardButton(text=t(lang, "btn_topup"))],
+
+            [KeyboardButton(text=t(lang, "btn_balance")), KeyboardButton(text=t(lang, "btn_orders"))],
+
+            [KeyboardButton(text=t(lang, "btn_invoice")), KeyboardButton(text=t(lang, "btn_language"))],
+
+            [KeyboardButton(text=t(lang, "btn_support")), KeyboardButton(text=t(lang, "btn_channel"))],
+
+            [KeyboardButton(text=t(lang, "btn_center"))],
+
+        ],
+
+        resize_keyboard=True
+
+    )
+
+
+
+
+
+def language_kb():
+
+    return InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [InlineKeyboardButton(text="🇺🇸 English", callback_data="lang:en")],
+
+            [InlineKeyboardButton(text="🇨🇳 中文", callback_data="lang:zh")],
+
+        ]
+
+    )
+
+
+
+
+
+def support_kb(lang: str):
+
+    return InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [InlineKeyboardButton(text=t(lang, "contact_support"), url=SUPPORT_LINK)],
+
+            [InlineKeyboardButton(text=t(lang, "open_channel"), url=CHANNEL_URL)],
+
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")],
+
+        ]
+
+    )
+
+
+
+
+
+def topup_kb(lang: str):
+
+    return InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [
+
+                InlineKeyboardButton(text="10 USDT", callback_data="topup:10"),
+
+                InlineKeyboardButton(text="50 USDT", callback_data="topup:50"),
+
+            ],
+
+            [
+
+                InlineKeyboardButton(text="100 USDT", callback_data="topup:100"),
+
+                InlineKeyboardButton(text="200 USDT", callback_data="topup:200"),
+
+            ],
+
+            [
+
+                InlineKeyboardButton(text="500 USDT", callback_data="topup:500"),
+
+                InlineKeyboardButton(text="1000 USDT", callback_data="topup:1000"),
+
+            ],
+
+            [InlineKeyboardButton(text=t(lang, "contact_support"), url=SUPPORT_LINK)],
+
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")],
+
+        ]
+
+    )
+
+
+
+
+
+def back_to_menu_inline(lang: str):
+
+    return InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")]
+
+        ]
+
+    )
+
+
+
+
+
+# =========================
+
+# UI HELPERS
+
+# =========================
+
+
+
+def category_name(row, lang):
+
+    return row["name_en"] if lang == "en" else row["name_zh"]
+
+
+
+
+
+def service_desc(row, lang):
+
+    return row["desc_en"] if lang == "en" else row["desc_zh"]
+
+
+
+
+
+async def safe_edit(call: CallbackQuery, text: str, reply_markup=None):
+
+    try:
+
+        if getattr(call.message, "text", None):
+
+            await call.message.edit_text(text, reply_markup=reply_markup)
+
+        elif getattr(call.message, "caption", None) is not None:
+
+            await call.message.edit_caption(caption=text, reply_markup=reply_markup)
+
+        else:
+
+            await call.message.answer(text, reply_markup=reply_markup)
+
+
+
+    except TelegramBadRequest as e:
+
+        err = str(e).lower()
+
+
+
+        if "message is not modified" in err:
+
+            return
+
+
+
+        if "there is no text in the message to edit" in err:
+
+            await call.message.answer(text, reply_markup=reply_markup)
+
+            return
+
+
+
+        if "message can't be edited" in err:
+
+            await call.message.answer(text, reply_markup=reply_markup)
+
+            return
+
+
+
+        if "there is no caption in the message to edit" in err:
+
+            await call.message.answer(text, reply_markup=reply_markup)
+
+            return
+
+
+
+        raise
+
+
+
+
+
+async def send_home(target, lang: str):
+
+    text = t(lang, "welcome")
+
+    if isinstance(target, Message):
+
+        if START_BANNER_URL:
+
+            await target.answer_photo(
+
+                photo=START_BANNER_URL,
+
+                caption=text,
+
+                reply_markup=main_menu(lang)
+
+            )
+
+        else:
+
+            await target.answer(text, reply_markup=main_menu(lang))
+
+    else:
+
+        await target.message.answer(text, reply_markup=main_menu(lang))
+
+
+
+
+
+async def send_categories(target, lang: str):
+
+    rows = await list_categories()
+
+    if not rows:
+
+        if isinstance(target, Message):
+
+            await target.answer(t(lang, "no_categories"))
+
+        else:
+
+            await safe_edit(target, t(lang, "no_categories"))
+
+        return
+
+
+
+    kb = InlineKeyboardBuilder()
+
+    for row in rows:
+
+        kb.button(text=category_name(row, lang), callback_data=f"cat:{row['id']}")
+
+    kb.button(text=t(lang, "back_menu"), callback_data="menu")
+
+    kb.adjust(1)
+
+
+
+    if isinstance(target, Message):
+
+        await target.answer(t(lang, "catalog_title"), reply_markup=kb.as_markup())
+
+    else:
+
+        await safe_edit(target, t(lang, "catalog_title"), reply_markup=kb.as_markup())
+
+
+
+
+
+async def send_featured(target, lang: str):
+
+    rows = await list_featured_services()
+
+    if not rows:
+
+        if isinstance(target, Message):
+
+            await target.answer(t(lang, "services_empty"))
+
+        else:
+
+            await safe_edit(target, t(lang, "services_empty"))
+
+        return
+
+
+
+    kb = InlineKeyboardBuilder()
+
+    for row in rows:
+
+        kb.button(
+
+            text=f"{row['title']} - {float(row['price']):.2f} USDT",
+
+            callback_data=f"service:{row['id']}"
+
+        )
+
+    kb.button(text=t(lang, "back_menu"), callback_data="menu")
+
+    kb.adjust(1)
+
+
+
+    if isinstance(target, Message):
+
+        await target.answer(t(lang, "hot_title"), reply_markup=kb.as_markup())
+
+    else:
+
+        await safe_edit(target, t(lang, "hot_title"), reply_markup=kb.as_markup())
+
+
+
+
+
+async def send_services_by_category(call: CallbackQuery, lang: str, category_id: int):
+
+    category = await get_category(category_id)
+
+    if not category:
+
+        await call.answer(t(lang, "no_categories"), show_alert=True)
+
+        return
+
+
+
+    rows = await list_services_by_category(category_id)
+
+    if not rows:
+
+        await safe_edit(
+
+            call,
+
+            t(lang, "no_services"),
+
+            reply_markup=back_to_menu_inline(lang)
+
+        )
+
+        return
+
+
+
+    kb = InlineKeyboardBuilder()
+
+    for row in rows:
+
+        kb.button(
+
+            text=f"{row['title']} - {float(row['price']):.2f} USDT",
+
+            callback_data=f"service:{row['id']}"
+
+        )
+
+    kb.button(text=t(lang, "back"), callback_data="catalog")
+
+    kb.button(text=t(lang, "back_menu"), callback_data="menu")
+
+    kb.adjust(1)
+
+
+
+    await safe_edit(
+
+        call,
+
+        t(lang, "services_title", category=category_name(category, lang)),
+
+        reply_markup=kb.as_markup()
+
+    )
+
+
+
+
+
+async def send_service_detail(call: CallbackQuery, lang: str, service_id: int):
+
+    row = await get_service(service_id)
+
+    if not row:
+
+        await call.answer(t(lang, "service_not_found"), show_alert=True)
+
+        return
+
+
+
+    kb = InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [InlineKeyboardButton(text=t(lang, "buy_now"), callback_data=f"buy:{service_id}")],
+
+            [InlineKeyboardButton(text=t(lang, "contact_support"), url=SUPPORT_LINK)],
+
+            [InlineKeyboardButton(text=t(lang, "back"), callback_data=f"cat:{row['category_id']}")],
+
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")],
+
+        ]
+
+    )
+
+
+
+    await safe_edit(
+
+        call,
+
+        t(
+
+            lang,
+
+            "service_detail",
+
+            title=row["title"],
+
+            badge=row["badge"],
+
+            price=float(row["price"]),
+
+            description=service_desc(row, lang)
+
+        ),
+
+        reply_markup=kb
+
+    )
+
+
+
+
+
+async def send_invoices_list(target, lang: str, tg_id: int):
+
+    rows = await get_user_invoices(tg_id)
+
+    if not rows:
+
+        if isinstance(target, Message):
+
+            await target.answer(t(lang, "invoices_empty"))
+
+        else:
+
+            await safe_edit(target, t(lang, "invoices_empty"))
+
+        return
+
+
+
+    kb = InlineKeyboardBuilder()
+
+    for row in rows:
+
+        invoice_no = make_invoice_no(row["id"], row["created_at"])
+
+        kb.button(
+
+            text=f"{invoice_no} - {float(row['price']):.2f} USDT",
+
+            callback_data=f"invoice:{row['id']}"
+
+        )
+
+    kb.button(text=t(lang, "back_menu"), callback_data="menu")
+
+    kb.adjust(1)
+
+
+
+    if isinstance(target, Message):
+
+        await target.answer(t(lang, "invoices_title"), reply_markup=kb.as_markup())
+
+    else:
+
+        await safe_edit(target, t(lang, "invoices_title"), reply_markup=kb.as_markup())
+
+
+
+
+
+async def send_invoice_detail(call: CallbackQuery, lang: str, order_id: int):
+
+    row = await get_invoice_by_order_id(order_id, call.from_user.id)
+
+    if not row:
+
+        await call.answer(t(lang, "service_not_found"), show_alert=True)
+
+        return
+
+
+
+    invoice_no = make_invoice_no(row["id"], row["created_at"])
+
+    status_text = t(lang, "invoice_paid") if row["status"] == "paid" else row["status"]
+
+
+
+    text = t(
+
+        lang,
+
+        "invoice_detail",
+
+        invoice_no=invoice_no,
+
+        order_id=row["id"],
+
+        name=call.from_user.full_name,
+
+        user_id=call.from_user.id,
+
+        service=row["title"],
+
+        amount=float(row["price"]),
+
+        status=status_text,
+
+        created_at=row["created_at"].strftime("%Y-%m-%d %H:%M"),
+
+        support=SUPPORT_USERNAME
+
+    )
+
+
+
+    kb = InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [InlineKeyboardButton(text=t(lang, "back"), callback_data="invoice_list")],
+
+            [InlineKeyboardButton(text=t(lang, "contact_support"), url=SUPPORT_LINK)],
+
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")],
+
+        ]
+
+    )
+
+
+
+    await safe_edit(call, text, reply_markup=kb)
+
+
+
+
+
+# =========================
+
+# USER HANDLERS
+
+# =========================
+
+
+
+@dp.message(Command("start"))
+
+async def cmd_start(message: Message):
+
+    user = await get_or_create_user_from_tg(message.from_user)
+
+    await send_home(message, user["language"] or "zh")
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_language"))
+
+async def menu_language(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await message.answer(t(lang, "language_title"), reply_markup=language_kb())
+
+
+
+
+
+@dp.callback_query(F.data.startswith("lang:"))
+
+async def cb_language(call: CallbackQuery):
+
+    await get_or_create_user_from_tg(call.from_user)
+
+    lang = call.data.split(":")[1]
+
+    if lang not in TRANSLATIONS:
+
+        lang = "zh"
+
+
+
+    await set_user_lang(call.from_user.id, lang)
+
+    await safe_edit(call, t(lang, f"language_updated_{lang}"))
+
+    await call.message.answer(t(lang, "choose_action"), reply_markup=main_menu(lang))
+
+    await call.answer()
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_hot"))
+
+async def menu_hot(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await send_featured(message, lang)
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_catalog"))
+
+async def menu_catalog(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await send_categories(message, lang)
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_promo"))
+
+async def menu_promo(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    promo = await get_promo_text(lang)
+
+
+
+    kb = InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [InlineKeyboardButton(text=t(lang, "topup_now"), callback_data="open_topup")],
+
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")]
+
+        ]
+
+    )
+
+
+
+    await message.answer(t(lang, "promo_title", promo=promo), reply_markup=kb)
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_topup"))
+
+async def menu_topup(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await message.answer(t(lang, "topup_title"), reply_markup=topup_kb(lang))
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_balance"))
+
+async def menu_balance(message: Message):
+
+    user = await get_or_create_user_from_tg(message.from_user)
+
+    lang = user["language"] or "zh"
+
+    await message.answer(t(lang, "balance_text", balance=float(user["balance"])))
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_orders"))
+
+async def menu_orders(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    rows = await user_orders(message.from_user.id)
+
+
+
+    if not rows:
+
+        return await message.answer(t(lang, "orders_empty"))
+
+
+
+    text = t(lang, "orders_title")
+
+    for row in rows:
+
+        text += t(
+
+            lang,
+
+            "orders_line",
+
+            id=row["id"],
+
+            title=row["title"],
+
+            price=float(row["price"]),
+
+            status=row["status"],
+
+            created_at=row["created_at"].strftime("%Y-%m-%d %H:%M")
+
+        )
+
+
+
+    await message.answer(text)
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_invoice"))
+
+async def menu_invoices(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await send_invoices_list(message, lang, message.from_user.id)
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_support"))
+
+async def menu_support(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await message.answer(t(lang, "support_text"), reply_markup=support_kb(lang))
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_channel"))
+
+async def menu_channel(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    kb = InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [InlineKeyboardButton(text=t(lang, "open_channel"), url=CHANNEL_URL)],
+
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")]
+
+        ]
+
+    )
+
+    await message.answer(t(lang, "channel_text"), reply_markup=kb)
+
+
+
+
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_center"))
+
+async def menu_center(message: Message):
+
+    user = await get_or_create_user_from_tg(message.from_user)
+
+    lang = user["language"] or "zh"
+
+    total_orders = await user_orders_count(message.from_user.id)
+
+
+
+    await message.answer(
+
+        t(
+
+            lang,
+
+            "center_text",
+
+            name=message.from_user.full_name,
+
+            user_id=message.from_user.id,
+
+            created_at=user["created_at"].strftime("%Y-%m-%d %H:%M"),
+
+            balance=float(user["balance"]),
+
+            spent=float(user["total_spent"]),
+
+            orders=total_orders
+
+        ),
+
+        reply_markup=main_menu(lang)
+
+    )
+
+
+
+
+
+# =========================
+
+# CALLBACK HANDLERS
+
+# =========================
+
+
+
+@dp.callback_query(F.data == "menu")
+
+async def cb_menu(call: CallbackQuery):
+
+    lang = await get_user_lang(call.from_user.id)
+
+    await call.message.answer(t(lang, "choose_action"), reply_markup=main_menu(lang))
+
+    await call.answer()
+
+
+
+
+
+@dp.callback_query(F.data == "catalog")
+
+async def cb_catalog(call: CallbackQuery):
+
+    lang = await get_user_lang(call.from_user.id)
+
+    await send_categories(call, lang)
+
+    await call.answer()
+
+
+
+
+
+@dp.callback_query(F.data == "open_topup")
+
+async def cb_open_topup(call: CallbackQuery):
+
+    lang = await get_user_lang(call.from_user.id)
+
+    await call.message.answer(t(lang, "topup_title"), reply_markup=topup_kb(lang))
+
+    await call.answer()
+
+
+
+
+
+@dp.callback_query(F.data.startswith("cat:"))
+
+async def cb_category(call: CallbackQuery):
+
+    lang = await get_user_lang(call.from_user.id)
+
+    category_id = int(call.data.split(":")[1])
+
+    await send_services_by_category(call, lang, category_id)
+
+    await call.answer()
+
+
+
+
+
+@dp.callback_query(F.data.startswith("service:"))
+
+async def cb_service(call: CallbackQuery):
+
+    lang = await get_user_lang(call.from_user.id)
+
+    service_id = int(call.data.split(":")[1])
+
+    await send_service_detail(call, lang, service_id)
+
+    await call.answer()
+
+
+
+
+
+@dp.callback_query(F.data.startswith("buy:"))
+
+async def cb_buy(call: CallbackQuery):
+
+    await get_or_create_user_from_tg(call.from_user)
+
+    lang = await get_user_lang(call.from_user.id)
+
+    service_id = int(call.data.split(":")[1])
+
+
+
+    ok, result = await create_order(call.from_user.id, service_id)
+
+    if not ok:
+
+        if result == "balance_not_enough":
+
+            await call.answer(t(lang, "balance_not_enough"), show_alert=True)
+
+            await call.message.answer(t(lang, "topup_title"), reply_markup=topup_kb(lang))
+
+            return
+
+
+
+        await call.answer(t(lang, result), show_alert=True)
+
+        return
+
+
+
+    kb = InlineKeyboardMarkup(
+
+        inline_keyboard=[
+
+            [InlineKeyboardButton(text=t(lang, "view_invoice"), callback_data=f"invoice:{result['order_id']}")],
+
+            [InlineKeyboardButton(text=t(lang, "contact_support"), url=SUPPORT_LINK)],
+
+            [InlineKeyboardButton(text=t(lang, "back_menu"), callback_data="menu")]
+
+        ]
+
+    )
+
+
+
+    await call.message.answer(
+
+        t(
+
+            lang,
+
+            "buy_success",
+
+            title=result["title"],
+
+            price=result["price"],
+
+            order_id=result["order_id"]
+
+        ),
+
+        reply_markup=kb
+
+    )
+
+
+
+    if ADMIN_ID:
+
+        try:
+
+            await bot.send_message(
+
+                ADMIN_ID,
+
+                f"🆕 New order\n"
+
+                f"User: {call.from_user.full_name} ({call.from_user.id})\n"
+
+                f"Service: {result['title']}\n"
+
+                f"Price: {result['price']:.2f} USDT\n"
+
+                f"Order ID: #{result['order_id']}"
+
+            )
+
+        except Exception:
+
+            pass
+
+
+
+    await call.answer("OK")
+
+
+
+
+
+@dp.callback_query(F.data.startswith("topup:"))
+
+async def cb_topup(call: CallbackQuery):
+
+    lang = await get_user_lang(call.from_user.id)
+
+    amount = call.data.split(":")[1]
+
+    await call.message.answer(
+
+        t(
+
+            lang,
+
+            "topup_info",
+
+            amount=amount,
+
+            payment_text=PAYMENT_TEXT,
+
+            user_id=call.from_user.id
+
+        ),
+
+        reply_markup=support_kb(lang)
+
+    )
+
+    await call.answer()
+
+
+
+
+
+@dp.callback_query(F.data == "invoice_list")
+
+async def cb_invoice_list(call: CallbackQuery):
+
+    lang = await get_user_lang(call.from_user.id)
+
+    await send_invoices_list(call, lang, call.from_user.id)
+
+    await call.answer()
+
+
+
+
+
+@dp.callback_query(F.data.startswith("invoice:"))
+
+async def cb_invoice_detail(call: CallbackQuery):
+
+    lang = await get_user_lang(call.from_user.id)
+
+    order_id = int(call.data.split(":")[1])
+
+    await send_invoice_detail(call, lang, order_id)
+
+    await call.answer()
+
+
+
+
+
+# =========================
+
+# ADMIN COMMANDS
+
+# =========================
+
+
+
+def is_admin(user_id: int):
+
+    return user_id == ADMIN_ID
+
+
+
+
+
+@dp.message(Command("admin"))
+
+async def cmd_admin(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+    await message.answer(t(lang, "admin_help"))
+
+
+
+
+
+@dp.message(Command("seed"))
+
+async def cmd_seed(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+
+
+    await seed_sample_data()
+
+    await message.answer(t(lang, "seed_done"))
+
+
+
+
+
+@dp.message(Command("addcategory"))
+
+async def cmd_addcategory(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+
+
+    try:
+
+        raw = message.text.replace("/addcategory", "", 1).strip()
+
+        name_en, name_zh = [x.strip() for x in raw.split("|", 1)]
+
+
+
+        await add_category(name_en, name_zh)
+
+        await message.answer(t(lang, "category_added"))
+
+    except Exception:
+
+        await message.answer(t(lang, "bad_addcategory"))
+
+
+
+
+
+@dp.message(Command("addservice"))
+
+async def cmd_addservice(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+
+
+    try:
+
+        raw = message.text.replace("/addservice", "", 1).strip()
+
+        parts = [x.strip() for x in raw.split("|", 5)]
+
+
+
+        category_id = int(parts[0])
+
+        title = parts[1]
+
+        price = float(parts[2])
+
+        badge = parts[3]
+
+        desc_en = parts[4]
+
+        desc_zh = parts[5]
+
+
+
+        await add_service(category_id, title, price, badge, desc_en, desc_zh)
+
+        await message.answer(t(lang, "service_added"))
+
+    except Exception:
+
+        await message.answer(t(lang, "bad_addservice"))
+
+
+
+
+
+@dp.message(Command("feature"))
+
+async def cmd_feature(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+
+
+    try:
+
+        raw = message.text.replace("/feature", "", 1).strip()
+
+        service_id, val = [x.strip() for x in raw.split("|", 1)]
+
+        featured = val == "1"
+
+
+
+        await set_featured(int(service_id), featured)
+
+        await message.answer(t(lang, "feature_updated"))
+
+    except Exception:
+
+        await message.answer(t(lang, "bad_feature"))
+
+
+
+
+
+@dp.message(Command("setbalance"))
+
+async def cmd_setbalance(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+
+
+    try:
+
+        raw = message.text.replace("/setbalance", "", 1).strip()
+
+        tg_id, amount = [x.strip() for x in raw.split("|", 1)]
+
+
+
+        await set_balance(int(tg_id), float(amount))
+
+        await message.answer(t(lang, "balance_updated"))
+
+    except Exception:
+
+        await message.answer(t(lang, "bad_setbalance"))
+
+
+
+
+
+@dp.message(Command("promo"))
+
+async def cmd_promo(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+
+
+    promo_text = message.text.replace("/promo", "", 1).strip()
+
+    if not promo_text:
+
+        promo_text = t(lang, "default_promo")
+
+
+
+    await set_promo_text(promo_text)
+
+    await message.answer(t(lang, "promo_updated"))
+
+
+
+
+
+@dp.message(Command("services"))
+
+async def cmd_services(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+
+
+    rows = await list_services_admin()
+
+
+
+    if not rows:
+
+        return await message.answer(t(lang, "services_empty"))
+
+
+
+    text = t(lang, "services_admin_title")
+
+    for row in rows:
+
+        text += t(
+
+            lang,
+
+            "services_admin_line",
+
+            id=row["id"],
+
+            title=row["title"],
+
+            price=float(row["price"]),
+
+            category_id=row["category_id"],
+
+            featured=row["featured"]
+
+        )
+
+
+
+    await message.answer(text)
+
+
+
+
+
+@dp.message(Command("broadcast"))
+
+async def cmd_broadcast(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+
+
+    if not is_admin(message.from_user.id):
+
+        return await message.answer(t(lang, "admin_only"))
+
+
+
+    content = message.text.replace("/broadcast", "", 1).strip()
+
+    if not content:
+
+        return await message.answer(t(lang, "broadcast_empty"))
+
+
+
+    user_ids = await all_user_ids()
+
+    ok = 0
+
+    fail = 0
+
+
+
+    for uid in user_ids:
+
+        try:
+
+            await bot.send_message(uid, content)
+
+            ok += 1
+
+            await asyncio.sleep(0.05)
+
+        except Exception:
+
+            fail += 1
+
+
+
+    await message.answer(t(lang, "broadcast_done", ok=ok, fail=fail))
+
+
+
+
+
+# =========================
+
+# STARTUP
+
+# =========================
+
+
+
+async def main():
+
+    await init_db()
+
+    await bot.delete_webhook(drop_pending_updates=True)
+
+    print("Bot is running...")
+
+    await dp.start_polling(bot)
+
+
+
+if __name__ == "__main__":
+
+    asyncio.run(main())
+
+```
+
+
+
+---
+
+
+
+## Nhớ thêm file `db.py`
+
+File này phải để cùng thư mục với `bot.py`.
+
+
+
+Nếu cần, mình cũng có thể gửi lại cho bạn **`db.py` final khớp 100% với bot.py trên**.
+
+
+
+---
+
+
+
+## Chạy
+
+```bash
+
+pip install aiogram asyncpg python-dotenv
+
+python bot.py
+
+```
+
+
+
+---
+
+
+
+## Nếu vẫn lỗi
+
+Gửi mình:
+
+1. `db.py` hiện tại của bạn
+
+2. dòng lỗi cuối cùng trong log dưới dạng text
+
+
+
+Mình sẽ ráp lại cho bạn bản chạy ổn luôn.
+
+Không tệp nào được chọnKhông tệp nào được chọn
+
+Lỗi lần này đã rõ rồi vro:
+
+Lỗi chính
+asyncpg.exceptions.UndefinedColumnError:
+column "telegram_id" of relation "users" does not exist
+Nghĩa là gì
+Table users trong PostgreSQL của bạn đã tồn tại từ trước, nhưng schema cũ của nó không có cột telegram_id.
+
+Trong khi code hiện tại đang query kiểu:
+
+SELECT * FROM users WHERE telegram_id = $1
+nên DB báo lỗi.
+
+Vì sao bị vậy?
+Dù trong init_db() bạn có:
+
+CREATE TABLE IF NOT EXISTS users (...)
+thì lệnh này không sửa table cũ nếu table đã tồn tại.
+
+Nó chỉ tạo nếu chưa có thôi.
+
+=> Nên table users cũ của bạn vẫn giữ schema cũ.
+
+Cách xử lý
+Có 2 đường:
+
+Cách 1 — Nhanh nhất, nếu không cần giữ dữ liệu cũ
+Nếu DB này chưa quan trọng, chưa có dữ liệu cần giữ, thì xóa table cũ rồi để bot tự tạo lại.
+
+Chạy SQL này:
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS services CASCADE;
+DROP TABLE IF EXISTS categories CASCADE;
+DROP TABLE IF EXISTS settings CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+Sau đó restart bot.
+
+Bot sẽ tự tạo lại đầy đủ schema mới.
+
+Ưu điểm:
+nhanh
+sạch
+ít lỗi nhất
+Nhược:
+mất toàn bộ data cũ
+Cách 2 — Giữ dữ liệu cũ, thêm migration
+Nếu bạn muốn giữ data cũ, thì cần ALTER TABLE users để thêm cột còn thiếu.
+
+Chạy SQL này:
+ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_id BIGINT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'zh';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS total_spent NUMERIC(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();
+Sau đó thêm unique cho telegram_id:
+
+ALTER TABLE users
+ADD CONSTRAINT users_telegram_id_key UNIQUE (telegram_id);
+Nếu báo constraint đã tồn tại thì bỏ qua.
+
+Nhưng còn 1 vấn đề quan trọng
+Nếu cột telegram_id mới thêm vào mà toàn bộ record cũ đều đang là NULL, thì user cũ sẽ không map được Telegram account.
+
+Nên bạn cần xem table cũ có cột nào tương đương không, ví dụ:
+
+user_id
+tg_id
+chat_id
+Kiểm tra schema cũ:
+SELECT column_name
+FROM information_schema.columns
+WHERE table_name = 'users';
+Nếu có cột kiểu user_id, bạn có thể copy sang:
+
+UPDATE users
+SET telegram_id = user_id
+WHERE telegram_id IS NULL;
+Nếu có cột tg_id:
+
+UPDATE users
+SET telegram_id = tg_id
+WHERE telegram_id IS NULL;
+Cách mình khuyên bạn
+Nếu bot mới làm, chưa cần giữ user/order cũ:
+xóa toàn bộ table và chạy lại là tốt nhất.
+
+Ngoài ra, bạn nên sửa db.py để migration mạnh hơn
+Hiện tại db.py của bạn mới có:
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS language ...
+ALTER TABLE users ADD COLUMN IF NOT EXISTS balance ...
+ALTER TABLE users ADD COLUMN IF NOT EXISTS total_spent ...
+Nhưng chưa có migration cho telegram_id, username, full_name, created_at.
+
+Patch chuẩn cho db.py
+Trong init_db(), sau phần tạo table, thêm mấy dòng này:
+
+await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_id BIGINT;")
+await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;")
+await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT;")
+await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'zh';")
+await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(12,2) NOT NULL DEFAULT 0;")
+await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS total_spent NUMERIC(12,2) NOT NULL DEFAULT 0;")
+await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();")
+Và thêm đoạn tạo unique constraint an toàn:
+
+await conn.execute("""
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'users_telegram_id_key'
+    ) THEN
+        ALTER TABLE users
+        ADD CONSTRAINT users_telegram_id_key UNIQUE (telegram_id);
+    END IF;
+END
+$$;
+""")
+Mình đề xuất bản init_db() an toàn hơn như này
+Thay nguyên hàm init_db() trong db.py bằng:
+async def init_db():
+    global db_pool
+    db_pool = await asyncpg.create_pool(DATABASE_URL)
+
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            telegram_id BIGINT UNIQUE NOT NULL,
+            username TEXT,
+            full_name TEXT,
+            language TEXT DEFAULT 'zh',
+            balance NUMERIC(12,2) NOT NULL DEFAULT 0,
+            total_spent NUMERIC(12,2) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS categories (
+            id SERIAL PRIMARY KEY,
+            name_en TEXT NOT NULL,
+            name_zh TEXT NOT NULL,
+            active BOOLEAN DEFAULT TRUE,
+            sort_order INTEGER DEFAULT 0
+        );
+        """)
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS services (
+            id SERIAL PRIMARY KEY,
+            category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            price NUMERIC(12,2) NOT NULL DEFAULT 0,
+            badge TEXT DEFAULT 'POPULAR',
+            desc_en TEXT DEFAULT '',
+            desc_zh TEXT DEFAULT '',
+            featured BOOLEAN DEFAULT FALSE,
+            active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS orders (
+            id SERIAL PRIMARY KEY,
+            telegram_id BIGINT NOT NULL,
+            service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+            price NUMERIC(12,2) NOT NULL,
+            status TEXT DEFAULT 'paid',
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        );
+        """)
+
+        # users migrations
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_id BIGINT;")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT;")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'zh';")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(12,2) NOT NULL DEFAULT 0;")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS total_spent NUMERIC(12,2) NOT NULL DEFAULT 0;")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();")
+
+        await conn.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint
+                WHERE conname = 'users_telegram_id_key'
+            ) THEN
+                ALTER TABLE users
+                ADD CONSTRAINT users_telegram_id_key UNIQUE (telegram_id);
+            END IF;
+        END
+        $$;
+        """)
+
+        # fix old language values
+        await conn.execute("""
+            UPDATE users
+            SET language = 'zh'
+            WHERE language IS NULL OR language = 'vi'
+        """)
+Nếu DB cũ quá lộn xộn
+Có khi table users cũ không phù hợp hẳn với bot mới.
+
+Lúc đó cách sạch nhất vẫn là:
+
+DROP TABLE users CASCADE;
+rồi restart bot.
+
+Nếu muốn xóa sạch toàn bộ schema bot:
+
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS services CASCADE;
+DROP TABLE IF EXISTS categories CASCADE;
+DROP TABLE IF EXISTS settings CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+Mình khuyên bạn làm ngay thế này
+Nếu không cần data cũ:
+vào PostgreSQL
+chạy:
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS services CASCADE;
+DROP TABLE IF EXISTS categories CASCADE;
+DROP TABLE IF EXISTS settings CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+3. restart bot
+
+Nếu cần data cũ:
+chạy ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...
+nếu có cột cũ tương đương thì copy sang telegram_id
+restart bot
+Nếu bạn muốn, mình có thể gửi cho bạn ngay:
+db.py full final đã vá migration telegram_id
+hoặc SQL full để repair database hiện tại
+Nếu thích nhanh, mình sẽ gửi luôn bản db.py final copy-paste được.
+
+Không tệp nào được chọnKhông tệp nào được chọn
+bạn gửi tôi full code db.py
+
+Đây vro, dưới đây là db.py full code khớp với bot.py mình đã gửi cho bạn, và đã vá lỗi migration thiếu cột telegram_id luôn.
+
+db.py
+import os
+import asyncpg
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("Missing DATABASE_URL")
+
+db_pool = None
+
+DEFAULT_PROMOS = {
+    "en": (
+        "🎁 Top up 100 USDT: get 5% bonus\n"
+        "🎁 Top up 300 USDT: get 10% bonus\n"
+        "🎁 Selected service packages are on limited discount"
+    ),
+    "zh": (
+        "🎁 充值 100 USDT：赠送 5%\n"
+        "🎁 充值 300 USDT：赠送 10%\n"
+        "🎁 部分服务套餐限时优惠中"
+    )
+}
+
+
+async def init_db():
+    global db_pool
+    db_pool = await asyncpg.create_pool(DATABASE_URL)
+
+    async with db_pool.acquire() as conn:
+        # =========================
+        # CREATE TABLES
+        # =========================
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            telegram_id BIGINT UNIQUE NOT NULL,
+            username TEXT,
+            full_name TEXT,
+            language TEXT DEFAULT 'zh',
+            balance NUMERIC(12,2) NOT NULL DEFAULT 0,
+            total_spent NUMERIC(12,2) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS categories (
+            id SERIAL PRIMARY KEY,
+            name_en TEXT NOT NULL,
+            name_zh TEXT NOT NULL,
+            active BOOLEAN DEFAULT TRUE,
+            sort_order INTEGER DEFAULT 0
+        );
+        """)
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS services (
+            id SERIAL PRIMARY KEY,
+            category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            price NUMERIC(12,2) NOT NULL DEFAULT 0,
+            badge TEXT DEFAULT 'POPULAR',
+            desc_en TEXT DEFAULT '',
+            desc_zh TEXT DEFAULT '',
+            featured BOOLEAN DEFAULT FALSE,
+            active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS orders (
+            id SERIAL PRIMARY KEY,
+            telegram_id BIGINT NOT NULL,
+            service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+            price NUMERIC(12,2) NOT NULL,
+            status TEXT DEFAULT 'paid',
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        );
+        """)
+
+        # =========================
+        # SAFE MIGRATIONS - USERS
+        # =========================
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_id BIGINT;")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT;")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'zh';")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(12,2) NOT NULL DEFAULT 0;")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS total_spent NUMERIC(12,2) NOT NULL DEFAULT 0;")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();")
+
+        # unique constraint for telegram_id
+        await conn.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint
+                WHERE conname = 'users_telegram_id_key'
+            ) THEN
+                ALTER TABLE users
+                ADD CONSTRAINT users_telegram_id_key UNIQUE (telegram_id);
+            END IF;
+        END
+        $$;
+        """)
+
+        # =========================
+        # SAFE MIGRATIONS - CATEGORIES
+        # =========================
+        await conn.execute("ALTER TABLE categories ADD COLUMN IF NOT EXISTS name_en TEXT DEFAULT '';")
+        await conn.execute("ALTER TABLE categories ADD COLUMN IF NOT EXISTS name_zh TEXT DEFAULT '';")
+        await conn.execute("ALTER TABLE categories ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE;")
+        await conn.execute("ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;")
+
+        # =========================
+        # SAFE MIGRATIONS - SERVICES
+        # =========================
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS category_id INTEGER;")
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS title TEXT DEFAULT '';")
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS price NUMERIC(12,2) NOT NULL DEFAULT 0;")
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS badge TEXT DEFAULT 'POPULAR';")
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS desc_en TEXT DEFAULT '';")
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS desc_zh TEXT DEFAULT '';")
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS featured BOOLEAN DEFAULT FALSE;")
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE;")
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();")
+
+        # =========================
+        # SAFE MIGRATIONS - ORDERS
+        # =========================
+        await conn.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS telegram_id BIGINT;")
+        await conn.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS service_id INTEGER;")
+        await conn.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS price NUMERIC(12,2) NOT NULL DEFAULT 0;")
+        await conn.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'paid';")
+        await conn.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();")
+
+        # =========================
+        # FIX OLD LANGUAGE VALUES
+        # =========================
+        await conn.execute("""
+            UPDATE users
+            SET language = 'zh'
+            WHERE language IS NULL OR language = 'vi'
+        """)
+
+
+async def close_db():
+    global db_pool
+    if db_pool:
+        await db_pool.close()
+        db_pool = None
+
+
+async def get_or_create_user_from_tg(tg_user):
+    async with db_pool.acquire() as conn:
+        user = await conn.fetchrow(
+            "SELECT * FROM users WHERE telegram_id = $1",
+            tg_user.id
+        )
+
+        if not user:
+            await conn.execute("""
+                INSERT INTO users (telegram_id, username, full_name, language)
+                VALUES ($1, $2, $3, 'zh')
+            """, tg_user.id, tg_user.username, tg_user.full_name)
+
+            user = await conn.fetchrow(
+                "SELECT * FROM users WHERE telegram_id = $1",
+                tg_user.id
+            )
+
+        return user
+
+
+async def get_user(tg_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetchrow(
+            "SELECT * FROM users WHERE telegram_id = $1",
+            tg_id
+        )
+
+
+async def get_user_lang(tg_id: int):
+    user = await get_user(tg_id)
+    if not user:
+        return "zh"
+    return user["language"] or "zh"
+
+
+async def set_user_lang(tg_id: int, lang: str):
+    if lang not in ("en", "zh"):
+        lang = "zh"
+
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE users SET language = $1 WHERE telegram_id = $2",
+            lang, tg_id
+        )
+
+
+async def get_promo_text(lang: str):
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT value FROM settings WHERE key = 'promo_text'"
+        )
+        if row and row["value"]:
+            return row["value"]
+
+    return DEFAULT_PROMOS.get(lang, DEFAULT_PROMOS["zh"])
+
+
+async def list_categories():
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT * FROM categories
+            WHERE active = TRUE
+            ORDER BY sort_order ASC, id ASC
+        """)
+
+
+async def get_category(category_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetchrow("""
+            SELECT * FROM categories
+            WHERE id = $1
+        """, category_id)
+
+
+async def list_featured_services():
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT * FROM services
+            WHERE active = TRUE AND featured = TRUE
+            ORDER BY id ASC
+            LIMIT 20
+        """)
+
+
+async def list_services_by_category(category_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT * FROM services
+            WHERE active = TRUE AND category_id = $1
+            ORDER BY id ASC
+        """, category_id)
+
+
+async def get_service(service_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetchrow("""
+            SELECT * FROM services
+            WHERE id = $1 AND active = TRUE
+        """, service_id)
+
+
+async def create_order(user_tg_id: int, service_id: int):
+    async with db_pool.acquire() as conn:
+        async with conn.transaction():
+            user = await conn.fetchrow("""
+                SELECT * FROM users
+                WHERE telegram_id = $1
+                FOR UPDATE
+            """, user_tg_id)
+
+            service = await conn.fetchrow("""
+                SELECT * FROM services
+                WHERE id = $1 AND active = TRUE
+            """, service_id)
+
+            if not user or not service:
+                return False, "service_not_found"
+
+            if float(user["balance"]) < float(service["price"]):
+                return False, "balance_not_enough"
+
+            await conn.execute("""
+                UPDATE users
+                SET balance = balance - $1,
+                    total_spent = total_spent + $1
+                WHERE telegram_id = $2
+            """, service["price"], user_tg_id)
+
+            order = await conn.fetchrow("""
+                INSERT INTO orders (telegram_id, service_id, price, status)
+                VALUES ($1, $2, $3, 'paid')
+                RETURNING id, created_at
+            """, user_tg_id, service_id, service["price"])
+
+            return True, {
+                "order_id": order["id"],
+                "created_at": order["created_at"],
+                "title": service["title"],
+                "price": float(service["price"])
+            }
+
+
+async def user_orders(tg_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT o.id, s.title, o.price, o.status, o.created_at
+            FROM orders o
+            JOIN services s ON s.id = o.service_id
+            WHERE o.telegram_id = $1
+            ORDER BY o.id DESC
+            LIMIT 10
+        """, tg_id)
+
+
+async def user_orders_count(tg_id: int):
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT COUNT(*) AS total
+            FROM orders
+            WHERE telegram_id = $1
+        """, tg_id)
+        return int(row["total"]) if row else 0
+
+
+async def get_user_invoices(tg_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT o.id, o.price, o.status, o.created_at, s.title
+            FROM orders o
+            JOIN services s ON s.id = o.service_id
+            WHERE o.telegram_id = $1
+            ORDER BY o.id DESC
+            LIMIT 20
+        """, tg_id)
+
+
+async def get_invoice_by_order_id(order_id: int, tg_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetchrow("""
+            SELECT o.id, o.telegram_id, o.price, o.status, o.created_at, s.title
+            FROM orders o
+            JOIN services s ON s.id = o.service_id
+            WHERE o.id = $1 AND o.telegram_id = $2
+        """, order_id, tg_id)
+
+
+async def all_user_ids():
+    async with db_pool.acquire() as conn:
+        rows = await conn.fetch("SELECT telegram_id FROM users WHERE telegram_id IS NOT NULL")
+        return [r["telegram_id"] for r in rows]
+
+
+# =========================
+# ADMIN HELPERS
+# =========================
+
+async def seed_sample_data():
+    async with db_pool.acquire() as conn:
+        count = await conn.fetchrow("SELECT COUNT(*) AS total FROM categories")
+        if int(count["total"]) == 0:
+            await conn.execute("""
+                INSERT INTO categories (name_en, name_zh, sort_order) VALUES
+                ('Bot Rental', '机器人租用', 1),
+                ('Custom Bot', '定制机器人', 2),
+                ('Group/Channel Setup', '群组/频道搭建', 3),
+                ('Telegram Automation', 'Telegram 自动化', 4),
+                ('Premium Gifts', '高级礼品', 5)
+            """)
+
+        svc_count = await conn.fetchrow("SELECT COUNT(*) AS total FROM services")
+        if int(svc_count["total"]) == 0:
+            await conn.execute("""
+                INSERT INTO services
+                (category_id, title, price, badge, desc_en, desc_zh, featured)
+                VALUES
+                (
+                    1, 'Monthly Bot Rental', 49, 'HOT',
+                    'Monthly rental bot package for sales, customer support and Telegram marketing.',
+                    '月租机器人套餐，适合销售、客服和 Telegram 营销。',
+                    TRUE
+                ),
+                (
+                    2, 'Custom Bot Development', 129, 'PREMIUM',
+                    'Custom Telegram bot development based on your business needs.',
+                    '根据您的业务需求定制开发 Telegram 机器人。',
+                    TRUE
+                ),
+                (
+                    3, 'Group/Channel Setup Pro', 39, 'POPULAR',
+                    'Professional setup for group/channel with menu, rules, welcome flow and optimization.',
+                    '专业搭建群组/频道，包含菜单、规则、欢迎流程和优化。',
+                    TRUE
+                ),
+                (
+                    4, 'Automation Package', 79, 'AUTO',
+                    'Legal Telegram automation: replies, forms, routing, mini CRM.',
+                    '合法 Telegram 自动化：回复、表单、分流、迷你 CRM。',
+                    FALSE
+                ),
+                (
+                    5, 'Premium Gift Assistance', 25, 'GIFT',
+                    'Support and consultation for valid premium gift related services.',
+                    '提供合法高级礼品相关服务的支持与咨询。',
+                    FALSE
+                )
+            """)
+
+
+async def add_category(name_en: str, name_zh: str):
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO categories (name_en, name_zh)
+            VALUES ($1, $2)
+        """, name_en, name_zh)
+
+
+async def add_service(category_id: int, title: str, price: float, badge: str, desc_en: str, desc_zh: str):
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO services
+            (category_id, title, price, badge, desc_en, desc_zh)
+            VALUES ($1, $2, $3, $4, $5, $6)
+        """, category_id, title, price, badge, desc_en, desc_zh)
+
+
+async def set_featured(service_id: int, featured: bool):
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            UPDATE services
+            SET featured = $1
+            WHERE id = $2
+        """, featured, service_id)
+
+
+async def set_balance(tg_id: int, amount: float):
+    async with db_pool.acquire() as conn:
+        user = await conn.fetchrow(
+            "SELECT * FROM users WHERE telegram_id = $1",
+            tg_id
+        )
+
+        if user:
+            await conn.execute("""
+                UPDATE users
+                SET balance = $1
+                WHERE telegram_id = $2
+            """, amount, tg_id)
+        else:
+            await conn.execute("""
+                INSERT INTO users (telegram_id, username, full_name, balance, language)
+                VALUES ($1, '', '', $2, 'zh')
+            """, tg_id, amount)
+
+
+async def set_promo_text(promo_text: str):
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO settings (key, value)
+            VALUES ('promo_text', $1)
+            ON CONFLICT (key)
+            DO UPDATE SET value = EXCLUDED.value
+        """, promo_text)
+
+
+async def list_services_admin():
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT id, category_id, title, price, featured
+            FROM services
+            ORDER BY id ASC
+        """)
+Sau khi thay db.py, bạn làm tiếp như này
+1) Redeploy / restart bot
+Nếu chạy local:
+
+python bot.py
+Nếu chạy server thì restart service/container.
+
+2) Nếu vẫn lỗi vì DB cũ quá lệch schema
+Thì chạy cách sạch nhất:
+
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS services CASCADE;
+DROP TABLE IF EXISTS categories CASCADE;
+DROP TABLE IF EXISTS settings CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+rồi restart bot để nó tự tạo lại.
+
+3) Đảm bảo bot.py import đúng từ db.py
+Phải có:
+
+from db import (
+    init_db,
+    get_or_create_user_from_tg,
+    get_user,
+    get_user_lang,
+    set_user_lang,
+    get_promo_text,
+    list_categories,
+    get_category,
+    list_featured_services,
+    list_services_by_category,
+    get_service,
+    create_order,
+    user_orders,
+    user_orders_count,
+    get_user_invoices,
+    get_invoice_by_order_id,
+    all_user_ids,
+    seed_sample_data,
+    add_category,
+    add_service,
+    set_featured,
+    set_balance,
+    set_promo_text,
+    list_services_admin,
+)
+Nếu bạn muốn, bước tiếp theo mình có thể gửi luôn cho bạn:
+
+requirements.txt chuẩn
+hoặc gói full 2 file bot.py + db.py final đồng bộ 100% để bạn copy một lần là chạy.
+Không tệp nào được chọnKhông tệp nào được chọn
+
+Chuẩn rồi vro, lỗi mới là:
+
+Lỗi
+SyntaxError: 'await' outside function
+Nghĩa là gì
+Trong db.py của bạn đang có dòng kiểu:
+
+await conn.execute(...)
+nằm ngoài một async def ....
+
+Tức là lúc bạn paste code, có thể một đoạn migration đã bị lệch thụt lề hoặc nằm ngoài hàm init_db().
+
+Cách sửa nhanh nhất
+Xóa toàn bộ nội dung file db.py cũ rồi thay bằng đúng nguyên file dưới đây.
+
+db.py chuẩn hoàn chỉnh
+import os
+import asyncpg
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("Missing DATABASE_URL")
+
+db_pool = None
+
+DEFAULT_PROMOS = {
+    "en": (
+        "🎁 Top up 100 USDT: get 5% bonus\n"
+        "🎁 Top up 300 USDT: get 10% bonus\n"
+        "🎁 Selected service packages are on limited discount"
+    ),
+    "zh": (
+        "🎁 充值 100 USDT：赠送 5%\n"
+        "🎁 充值 300 USDT：赠送 10%\n"
+        "🎁 部分服务套餐限时优惠中"
+    )
+}
+
+
+async def init_db():
+    global db_pool
+    db_pool = await asyncpg.create_pool(DATABASE_URL)
+
+    async with db_pool.acquire() as conn:
+        # =========================
+        # CREATE TABLES
+        # =========================
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            telegram_id BIGINT UNIQUE,
+            username TEXT,
+            full_name TEXT,
+            language TEXT DEFAULT 'zh',
+            balance NUMERIC(12,2) NOT NULL DEFAULT 0,
+            total_spent NUMERIC(12,2) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS categories (
+            id SERIAL PRIMARY KEY,
+            name_en TEXT NOT NULL,
+            name_zh TEXT NOT NULL,
+            active BOOLEAN DEFAULT TRUE,
+            sort_order INTEGER DEFAULT 0
+        );
+        """)
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS services (
+            id SERIAL PRIMARY KEY,
+            category_id INTEGER REFERENCES categories(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            price NUMERIC(12,2) NOT NULL DEFAULT 0,
+            badge TEXT DEFAULT 'POPULAR',
+            desc_en TEXT DEFAULT '',
+            desc_zh TEXT DEFAULT '',
+            featured BOOLEAN DEFAULT FALSE,
+            active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS orders (
+            id SERIAL PRIMARY KEY,
+            telegram_id BIGINT,
+            service_id INTEGER REFERENCES services(id) ON DELETE CASCADE,
+            price NUMERIC(12,2) NOT NULL DEFAULT 0,
+            status TEXT DEFAULT 'paid',
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """)
+
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        );
+        """)
+
+        # =========================
+        # SAFE MIGRATIONS - USERS
+        # =========================
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_id BIGINT;")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT;")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'zh';")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(12,2) NOT NULL DEFAULT 0;")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS total_spent NUMERIC(12,2) NOT NULL DEFAULT 0;")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();")
+
+        # sửa dữ liệu cũ nếu có cột telegram_id bị null
+        await conn.execute("""
+        UPDATE users
+        SET language = 'zh'
+        WHERE language IS NULL OR language = 'vi'
+        """)
+
+        # tạo unique constraint cho telegram_id nếu chưa có
+        await conn.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint
+                WHERE conname = 'users_telegram_id_key'
+            ) THEN
+                BEGIN
+                    ALTER TABLE users
+                    ADD CONSTRAINT users_telegram_id_key UNIQUE (telegram_id);
+                EXCEPTION
+                    WHEN duplicate_table THEN NULL;
+                    WHEN duplicate_object THEN NULL;
+                END;
+            END IF;
+        END
+        $$;
+        """)
+
+        # =========================
+        # SAFE MIGRATIONS - CATEGORIES
+        # =========================
+        await conn.execute("ALTER TABLE categories ADD COLUMN IF NOT EXISTS name_en TEXT DEFAULT '';")
+        await conn.execute("ALTER TABLE categories ADD COLUMN IF NOT EXISTS name_zh TEXT DEFAULT '';")
+        await conn.execute("ALTER TABLE categories ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE;")
+        await conn.execute("ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;")
+
+        # =========================
+        # SAFE MIGRATIONS - SERVICES
+        # =========================
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS category_id INTEGER;")
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS title TEXT DEFAULT '';")
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS price NUMERIC(12,2) NOT NULL DEFAULT 0;")
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS badge TEXT DEFAULT 'POPULAR';")
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS desc_en TEXT DEFAULT '';")
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS desc_zh TEXT DEFAULT '';")
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS featured BOOLEAN DEFAULT FALSE;")
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE;")
+        await conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();")
+
+        # =========================
+        # SAFE MIGRATIONS - ORDERS
+        # =========================
+        await conn.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS telegram_id BIGINT;")
+        await conn.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS service_id INTEGER;")
+        await conn.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS price NUMERIC(12,2) NOT NULL DEFAULT 0;")
+        await conn.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'paid';")
+        await conn.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();")
+
+
+async def close_db():
+    global db_pool
+    if db_pool:
+        await db_pool.close()
+        db_pool = None
+
+
+async def get_or_create_user_from_tg(tg_user):
+    async with db_pool.acquire() as conn:
+        user = await conn.fetchrow(
+            "SELECT * FROM users WHERE telegram_id = $1",
+            tg_user.id
+        )
+
+        if not user:
+            await conn.execute("""
+                INSERT INTO users (telegram_id, username, full_name, language)
+                VALUES ($1, $2, $3, 'zh')
+            """, tg_user.id, tg_user.username, tg_user.full_name)
+
+            user = await conn.fetchrow(
+                "SELECT * FROM users WHERE telegram_id = $1",
+                tg_user.id
+            )
+
+        return user
+
+
+async def get_user(tg_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetchrow(
+            "SELECT * FROM users WHERE telegram_id = $1",
+            tg_id
+        )
+
+
+async def get_user_lang(tg_id: int):
+    user = await get_user(tg_id)
+    if not user:
+        return "zh"
+    return user["language"] or "zh"
+
+
+async def set_user_lang(tg_id: int, lang: str):
+    if lang not in ("en", "zh"):
+        lang = "zh"
+
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE users SET language = $1 WHERE telegram_id = $2",
+            lang, tg_id
+        )
+
+
+async def get_promo_text(lang: str):
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT value FROM settings WHERE key = 'promo_text'"
+        )
+        if row and row["value"]:
+            return row["value"]
+
+    return DEFAULT_PROMOS.get(lang, DEFAULT_PROMOS["zh"])
+
+
+async def list_categories():
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT * FROM categories
+            WHERE active = TRUE
+            ORDER BY sort_order ASC, id ASC
+        """)
+
+
+async def get_category(category_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetchrow("""
+            SELECT * FROM categories
+            WHERE id = $1
+        """, category_id)
+
+
+async def list_featured_services():
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT * FROM services
+            WHERE active = TRUE AND featured = TRUE
+            ORDER BY id ASC
+            LIMIT 20
+        """)
+
+
+async def list_services_by_category(category_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT * FROM services
+            WHERE active = TRUE AND category_id = $1
+            ORDER BY id ASC
+        """, category_id)
+
+
+async def get_service(service_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetchrow("""
+            SELECT * FROM services
+            WHERE id = $1 AND active = TRUE
+        """, service_id)
+
+
+async def create_order(user_tg_id: int, service_id: int):
+    async with db_pool.acquire() as conn:
+        async with conn.transaction():
+            user = await conn.fetchrow("""
+                SELECT * FROM users
+                WHERE telegram_id = $1
+                FOR UPDATE
+            """, user_tg_id)
+
+            service = await conn.fetchrow("""
+                SELECT * FROM services
+                WHERE id = $1 AND active = TRUE
+            """, service_id)
+
+            if not user or not service:
+                return False, "service_not_found"
+
+            if float(user["balance"]) < float(service["price"]):
+                return False, "balance_not_enough"
+
+            await conn.execute("""
+                UPDATE users
+                SET balance = balance - $1,
+                    total_spent = total_spent + $1
+                WHERE telegram_id = $2
+            """, service["price"], user_tg_id)
+
+            order = await conn.fetchrow("""
+                INSERT INTO orders (telegram_id, service_id, price, status)
+                VALUES ($1, $2, $3, 'paid')
+                RETURNING id, created_at
+            """, user_tg_id, service_id, service["price"])
+
+            return True, {
+                "order_id": order["id"],
+                "created_at": order["created_at"],
+                "title": service["title"],
+                "price": float(service["price"])
+            }
+
+
+async def user_orders(tg_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT o.id, s.title, o.price, o.status, o.created_at
+            FROM orders o
+            JOIN services s ON s.id = o.service_id
+            WHERE o.telegram_id = $1
+            ORDER BY o.id DESC
+            LIMIT 10
+        """, tg_id)
+
+
+async def user_orders_count(tg_id: int):
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT COUNT(*) AS total
+            FROM orders
+            WHERE telegram_id = $1
+        """, tg_id)
+        return int(row["total"]) if row else 0
+
+
+async def get_user_invoices(tg_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT o.id, o.price, o.status, o.created_at, s.title
+            FROM orders o
+            JOIN services s ON s.id = o.service_id
+            WHERE o.telegram_id = $1
+            ORDER BY o.id DESC
+            LIMIT 20
+        """, tg_id)
+
+
+async def get_invoice_by_order_id(order_id: int, tg_id: int):
+    async with db_pool.acquire() as conn:
+        return await conn.fetchrow("""
+            SELECT o.id, o.telegram_id, o.price, o.status, o.created_at, s.title
+            FROM orders o
+            JOIN services s ON s.id = o.service_id
+            WHERE o.id = $1 AND o.telegram_id = $2
+        """, order_id, tg_id)
+
+
+async def all_user_ids():
+    async with db_pool.acquire() as conn:
+        rows = await conn.fetch("SELECT telegram_id FROM users WHERE telegram_id IS NOT NULL")
+        return [r["telegram_id"] for r in rows]
+
+
+# =========================
+# ADMIN HELPERS
+# =========================
+
+async def seed_sample_data():
+    async with db_pool.acquire() as conn:
+        count = await conn.fetchrow("SELECT COUNT(*) AS total FROM categories")
+        if int(count["total"]) == 0:
+            await conn.execute("""
+                INSERT INTO categories (name_en, name_zh, sort_order) VALUES
+                ('Bot Rental', '机器人租用', 1),
+                ('Custom Bot', '定制机器人', 2),
+                ('Group/Channel Setup', '群组/频道搭建', 3),
+                ('Telegram Automation', 'Telegram 自动化', 4),
+                ('Premium Gifts', '高级礼品', 5)
+            """)
+
+        svc_count = await conn.fetchrow("SELECT COUNT(*) AS total FROM services")
+        if int(svc_count["total"]) == 0:
+            await conn.execute("""
+                INSERT INTO services
+                (category_id, title, price, badge, desc_en, desc_zh, featured)
+                VALUES
+                (
+                    1, 'Monthly Bot Rental', 49, 'HOT',
+                    'Monthly rental bot package for sales, customer support and Telegram marketing.',
+                    '月租机器人套餐，适合销售、客服和 Telegram 营销。',
+                    TRUE
+                ),
+                (
+                    2, 'Custom Bot Development', 129, 'PREMIUM',
+                    'Custom Telegram bot development based on your business needs.',
+                    '根据您的业务需求定制开发 Telegram 机器人。',
+                    TRUE
+                ),
+                (
+                    3, 'Group/Channel Setup Pro', 39, 'POPULAR',
+                    'Professional setup for group/channel with menu, rules, welcome flow and optimization.',
+                    '专业搭建群组/频道，包含菜单、规则、欢迎流程和优化。',
+                    TRUE
+                ),
+                (
+                    4, 'Automation Package', 79, 'AUTO',
+                    'Legal Telegram automation: replies, forms, routing, mini CRM.',
+                    '合法 Telegram 自动化：回复、表单、分流、迷你 CRM。',
+                    FALSE
+                ),
+                (
+                    5, 'Premium Gift Assistance', 25, 'GIFT',
+                    'Support and consultation for valid premium gift related services.',
+                    '提供合法高级礼品相关服务的支持与咨询。',
+                    FALSE
+                )
+            """)
+
+
+async def add_category(name_en: str, name_zh: str):
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO categories (name_en, name_zh)
+            VALUES ($1, $2)
+        """, name_en, name_zh)
+
+
+async def add_service(category_id: int, title: str, price: float, badge: str, desc_en: str, desc_zh: str):
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO services
+            (category_id, title, price, badge, desc_en, desc_zh)
+            VALUES ($1, $2, $3, $4, $5, $6)
+        """, category_id, title, price, badge, desc_en, desc_zh)
+
+
+async def set_featured(service_id: int, featured: bool):
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            UPDATE services
+            SET featured = $1
+            WHERE id = $2
+        """, featured, service_id)
+
+
+async def set_balance(tg_id: int, amount: float):
+    async with db_pool.acquire() as conn:
+        user = await conn.fetchrow(
+            "SELECT * FROM users WHERE telegram_id = $1",
+            tg_id
+        )
+
+        if user:
+            await conn.execute("""
+                UPDATE users
+                SET balance = $1
+                WHERE telegram_id = $2
+            """, amount, tg_id)
+        else:
+            await conn.execute("""
+                INSERT INTO users (telegram_id, username, full_name, balance, language)
+                VALUES ($1, '', '', $2, 'zh')
+            """, tg_id, amount)
+
+
+async def set_promo_text(promo_text: str):
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO settings (key, value)
+            VALUES ('promo_text', $1)
+            ON CONFLICT (key)
+            DO UPDATE SET value = EXCLUDED.value
+        """, promo_text)
+
+
+async def list_services_admin():
+    async with db_pool.acquire() as conn:
+        return await conn.fetch("""
+            SELECT id, category_id, title, price, featured
+            FROM services
+            ORDER BY id ASC
+        """)
+Rất quan trọng
+Sau khi thay file này:
+
+1) kiểm tra trong db.py không còn dòng await ... nào nằm ngoài hàm
+Nếu bạn kéo xuống cuối file mà thấy kiểu:
+
+await conn.execute(...)
+đứng trơ trọi ngoài async def
+=> là sai, xóa ngay.
+
+2) restart lại bot
+Nếu DB cũ quá lỗi, làm sạch luôn
+Nếu sau đó vẫn báo lỗi schema cũ, chạy SQL này trong PostgreSQL:
+
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS services CASCADE;
+DROP TABLE IF EXISTS categories CASCADE;
+DROP TABLE IF EXISTS settings CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+rồi restart bot.
+
+Nếu bạn muốn, mình có thể gửi tiếp cho bạn:
+requirements.txt
+hoặc bộ 2 file final hoàn chỉnh: bot.py + db.py + .env mẫu để bạn chỉ việc copy deploy.
+Không tệp nào được chọnKhông tệp nào được chọn
+bạn giúp tôi cài đặt những phím kia hoàn thành luôn nhé , lựa chọn số đẹp , và số ẩn danh +888
+giá thuê số ẩn danh số bình thường 100 USDT 1 tháng
+và mua bán sao telegram , predium VIP telegram , những quà tặng , hỗ trợ truyền tin nhắn nhanh , và quảng cáo , bán các loại máy bay telegram , cho thuê bot quản lý , bot tính toán , bot phiên dịch , bot AI nhiều loại , làm theo yêu cầu
+
+Được vro. Mình sẽ giúp bạn hoàn thiện phần danh mục / phím Catalog theo hướng shop đầy đủ hơn.
+
+Tuy nhiên mình sẽ set theo kiểu dịch vụ hợp lệ / hỗ trợ đúng mục đích, đặc biệt với các mục nhạy cảm như:
+
+số ẩn danh / số đẹp
+broadcast / truyền tin nhắn nhanh
+quảng cáo
+=> mình để mô tả theo hướng hỗ trợ hợp lệ, opt-in, không spam, không lách chính sách.
+
+Bạn chỉ cần thay hàm seed_sample_data() trong db.py bằng bản này
+async def seed_sample_data():
+    categories = [
+        ("Nice Numbers & Anonymous", "靓号与匿名号码", 1),
+        ("Stars, Premium & Gifts", "星星、Premium 与礼品", 2),
+        ("Broadcast & Advertising", "消息推送与广告", 3),
+        ("Rental Bots", "机器人租赁", 4),
+        ("AI & Custom Bots", "AI 与定制机器人", 5),
+        ("Custom Requests", "定制需求", 6),
+    ]
+
+    services = [
+        {
+            "category": "Nice Numbers & Anonymous",
+            "title": "Nice Number Selection Support",
+            "price": 199,
+            "badge": "HOT",
+            "desc_en": "Support package for selecting memorable or premium Telegram numbers subject to platform availability and rules.",
+            "desc_zh": "协助选择好记或高级 Telegram 号码，具体以平台可用情况与规则为准。",
+            "featured": True,
+        },
+        {
+            "category": "Nice Numbers & Anonymous",
+            "title": "Anonymous Number Rental - Standard (1 Month)",
+            "price": 100,
+            "badge": "POPULAR",
+            "desc_en": "Standard 1-month package for lawful anonymous/collectible number related support and setup assistance.",
+            "desc_zh": "标准 1 个月服务套餐，用于合法匿名/收藏号码相关支持与协助。",
+            "featured": True,
+        },
+        {
+            "category": "Nice Numbers & Anonymous",
+            "title": "Anonymous Number +888 Premium (1 Month)",
+            "price": 888,
+            "badge": "VIP",
+            "desc_en": "Premium +888 selection support package for 1 month. Final availability depends on platform supply and policy.",
+            "desc_zh": "高级 +888 选择支持套餐，服务期 1 个月。最终以平台库存与规则为准。",
+            "featured": True,
+        },
+
+        {
+            "category": "Stars, Premium & Gifts",
+            "title": "Telegram Stars - 500",
+            "price": 9.99,
+            "badge": "STARS",
+            "desc_en": "Support package for Telegram Stars related purchase assistance.",
+            "desc_zh": "Telegram Stars 相关购买协助服务。",
+            "featured": True,
+        },
+        {
+            "category": "Stars, Premium & Gifts",
+            "title": "Telegram Stars - 1000",
+            "price": 18.99,
+            "badge": "STARS",
+            "desc_en": "Support package for Telegram Stars related purchase assistance.",
+            "desc_zh": "Telegram Stars 相关购买协助服务。",
+            "featured": False,
+        },
+        {
+            "category": "Stars, Premium & Gifts",
+            "title": "Telegram Premium VIP - 1 Month",
+            "price": 11.99,
+            "badge": "VIP",
+            "desc_en": "1-month Telegram Premium support package.",
+            "desc_zh": "Telegram Premium 1 个月支持套餐。",
+            "featured": True,
+        },
+        {
+            "category": "Stars, Premium & Gifts",
+            "title": "Telegram Premium VIP - 3 Months",
+            "price": 32.99,
+            "badge": "VIP",
+            "desc_en": "3-month Telegram Premium support package.",
+            "desc_zh": "Telegram Premium 3 个月支持套餐。",
+            "featured": False,
+        },
+        {
+            "category": "Stars, Premium & Gifts",
+            "title": "Telegram Gift Assistance",
+            "price": 25,
+            "badge": "GIFT",
+            "desc_en": "Consultation and support for valid Telegram premium gift related requests.",
+            "desc_zh": "提供合法 Telegram 高级礼品相关咨询与支持。",
+            "featured": False,
+        },
+
+        {
+            "category": "Broadcast & Advertising",
+            "title": "Fast Broadcast Setup (Opt-in Only)",
+            "price": 39,
+            "badge": "FAST",
+            "desc_en": "Fast broadcast setup for your own opted-in users, subscribers, or community members only.",
+            "desc_zh": "快速推送配置，仅适用于您自己的已订阅用户、成员或社群。",
+            "featured": True,
+        },
+        {
+            "category": "Broadcast & Advertising",
+            "title": "Advertising Placement Support",
+            "price": 59,
+            "badge": "ADS",
+            "desc_en": "Lawful advertising support for channels, communities, and approved offers.",
+            "desc_zh": "适用于频道、社群和合规项目的广告支持服务。",
+            "featured": True,
+        },
+        {
+            "category": "Broadcast & Advertising",
+            "title": "Promotional Message Design Support",
+            "price": 29,
+            "badge": "PROMO",
+            "desc_en": "Help with promotional copywriting and message formatting for lawful campaigns.",
+            "desc_zh": "用于合规推广活动的文案与消息排版支持。",
+            "featured": False,
+        },
+
+        {
+            "category": "Rental Bots",
+            "title": "Group Management Bot Rental",
+            "price": 49,
+            "badge": "BOT",
+            "desc_en": "Rental bot for moderation, welcome message, rules, anti-spam, and group management.",
+            "desc_zh": "群组管理机器人租赁，支持审核、欢迎语、规则、防垃圾等功能。",
+            "featured": True,
+        },
+        {
+            "category": "Rental Bots",
+            "title": "Calculator Bot Rental",
+            "price": 29,
+            "badge": "TOOLS",
+            "desc_en": "Bot rental for calculation, quick tools, and utility commands.",
+            "desc_zh": "计算与工具类机器人租赁服务。",
+            "featured": False,
+        },
+        {
+            "category": "Rental Bots",
+            "title": "Translator Bot Rental",
+            "price": 39,
+            "badge": "LANG",
+            "desc_en": "Multi-language translator bot rental for groups, channels, and support use.",
+            "desc_zh": "多语言翻译机器人租赁，适用于群组、频道与客服场景。",
+            "featured": True,
+        },
+
+        {
+            "category": "AI & Custom Bots",
+            "title": "AI Assistant Bot Rental",
+            "price": 99,
+            "badge": "AI",
+            "desc_en": "AI assistant bot rental for support, FAQs, simple tasks, and workflow automation.",
+            "desc_zh": "AI 助手机器人租赁，适用于客服、问答、简单任务与自动化流程。",
+            "featured": True,
+        },
+        {
+            "category": "AI & Custom Bots",
+            "title": "AI Multi-Tool Bot Pro",
+            "price": 169,
+            "badge": "PRO",
+            "desc_en": "Advanced AI bot package with multi-purpose tools, routing, and business workflow support.",
+            "desc_zh": "高级 AI 多功能机器人套餐，支持工具集、分流与业务流程。",
+            "featured": True,
+        },
+        {
+            "category": "AI & Custom Bots",
+            "title": "Custom Bot Development",
+            "price": 199,
+            "badge": "CUSTOM",
+            "desc_en": "Custom Telegram bot development based on your exact requirements.",
+            "desc_zh": "根据您的具体需求定制开发 Telegram 机器人。",
+            "featured": True,
+        },
+
+        {
+            "category": "Custom Requests",
+            "title": "Bot Development On Request",
+            "price": 299,
+            "badge": "REQUEST",
+            "desc_en": "Custom development service for special workflows, private tools, and tailored Telegram solutions.",
+            "desc_zh": "面向特殊流程、私有工具与定制 Telegram 方案的开发服务。",
+            "featured": False,
+        },
+        {
+            "category": "Custom Requests",
+            "title": "Custom Service Consultation",
+            "price": 49,
+            "badge": "CONSULT",
+            "desc_en": "Consultation package to discuss your custom Telegram service requirements.",
+            "desc_zh": "定制 Telegram 服务需求咨询套餐。",
+            "featured": False,
+        },
+    ]
+
+    async with db_pool.acquire() as conn:
+        category_map = {}
+
+        # create categories if missing
+        for name_en, name_zh, sort_order in categories:
+            row = await conn.fetchrow(
+                "SELECT id FROM categories WHERE name_en = $1 LIMIT 1",
+                name_en
+            )
+            if not row:
+                row = await conn.fetchrow("""
+                    INSERT INTO categories (name_en, name_zh, sort_order, active)
+                    VALUES ($1, $2, $3, TRUE)
+                    RETURNING id
+                """, name_en, name_zh, sort_order)
+
+            category_map[name_en] = row["id"]
+
+        # create services if missing
+        for item in services:
+            exists = await conn.fetchrow(
+                "SELECT id FROM services WHERE title = $1 LIMIT 1",
+                item["title"]
+            )
+            if not exists:
+                await conn.execute("""
+                    INSERT INTO services
+                    (category_id, title, price, badge, desc_en, desc_zh, featured, active)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
+                """,
+                    category_map[item["category"]],
+                    item["title"],
+                    item["price"],
+                    item["badge"],
+                    item["desc_en"],
+                    item["desc_zh"],
+                    item["featured"]
+                )
+Sau đó làm gì?
+Cách 1: nếu bot chưa có dữ liệu
+Chỉ cần chạy:
+
+/seed
+Cách 2: nếu trước đó bạn đã seed rồi
+Vì hàm mới này có check trùng theo:
+
+categories.name_en
+services.title
+nên bạn vẫn có thể chạy lại:
+
+/seed
+Nó sẽ chỉ thêm những mục còn thiếu.
+
+Bạn vừa yêu cầu những mục nào, mình đã map vào đây như sau
+1) Lựa chọn số đẹp
+Nice Number Selection Support
+2) Số ẩn danh thường
+Anonymous Number Rental - Standard (1 Month)
+giá: 100 USDT
+3) Số ẩn danh +888
+Anonymous Number +888 Premium (1 Month)
+mình set giá mẫu là 888 USDT
+Nếu bạn muốn đổi giá +888, chỉ sửa:
+
+"price": 888
+4) Mua bán sao Telegram
+Telegram Stars - 500
+Telegram Stars - 1000
+5) Premium VIP Telegram
+Telegram Premium VIP - 1 Month
+Telegram Premium VIP - 3 Months
+6) Quà tặng
+Telegram Gift Assistance
+7) Hỗ trợ truyền tin nhắn nhanh
+Fast Broadcast Setup (Opt-in Only)
+8) Quảng cáo
+Advertising Placement Support
+Promotional Message Design Support
+9) Cho thuê bot quản lý
+Group Management Bot Rental
+10) Bot tính toán
+Calculator Bot Rental
+11) Bot phiên dịch
+Translator Bot Rental
+12) Bot AI nhiều loại
+AI Assistant Bot Rental
+AI Multi-Tool Bot Pro
+13) Làm theo yêu cầu
+Custom Bot Development
+Bot Development On Request
+Custom Service Consultation
+Lưu ý quan trọng
+Mục bạn nói “máy bay telegram” là từ hơi mơ hồ và dễ vướng chính sách, nên mình không đưa thẳng tên đó vào seed.
+Nếu ý bạn là:
+
+tool Telegram hợp lệ
+utility package
+private workflow tool
+automation hợp lệ
+thì mình đã thay bằng:
+
+AI Multi-Tool Bot Pro
+Bot Development On Request
+Custom Service Consultation
+Nếu bạn muốn, mình có thể đổi tên riêng theo cách an toàn hơn, ví dụ:
+
+Telegram Utility Package
+Telegram Tools Pro
+Private Workflow Tool
+Nếu bạn muốn thêm nút riêng ngay ngoài menu chính
+Hiện tại bot của bạn đang có menu chính như:
+
+Hot Services
+Catalog
+Promotions
+Top Up
+Balance
+Orders
+Invoices
+Language
+Support
+Channel
+My Center
+Nếu bạn muốn mình làm tiếp kiểu:
+
+📱 Số đẹp
+👑 Premium / Stars
+🤖 Thuê Bot
+📢 Quảng Cáo
+🧠 AI Bot
+🛠 Làm Theo Yêu Cầu
+thì mình có thể sửa luôn bot.py để main menu có phím riêng, không cần user vào Catalog nữa.
+
+Gợi ý tiếp theo tốt nhất
+Nếu muốn shop nhìn chuyên hơn, bước sau mình sẽ làm cho bạn:
+
+Bản nâng cấp menu riêng:
+📱 Nice Numbers
+🔒 Anonymous +888
+⭐ Telegram Stars
+👑 Premium VIP
+🎁 Gifts
+📢 Advertising
+⚡ Fast Broadcast
+🤖 Rental Bots
+🧠 AI Bots
+🛠 Custom Order
+Nếu bạn muốn, mình sẽ làm tiếp cho bạn bản bot.py full có thêm các nút menu riêng này luôn, để nhìn giống shop hoàn chỉnh hơn.
+
+Không tệp nào được chọnKhông tệp nào được chọn
+đúng rồi ,  những mục khách hàng cần mua đều ở trong giỏ hàng
+
+Không tệp nào được chọnKhông tệp nào được chọn
+số ẩn danh và bot bạn giúp tôi làm kiểu vip vip một chút nhé
+
+Không tệp nào được chọnKhông tệp nào được chọn
+nhìn đẹp mắt và vận hành tốt là được , ai tò mò ấn vào nút số 888 và nút bot họ sẽ cảm thấy ok
+
+Không tệp nào được chọnKhông tệp nào được chọn
+nhiều phím mỗi thư mục hàng nào là có nút cả . nhưng vip nhấ là bot và số ẩn danh
+
+Không tệp nào được chọnKhông tệp nào được chọn
+me
+
+Không tệp nào được chọnKhông tệp nào được chọn
+theo tôi
+menu 1 : 🌍 Ngôn ngữ . 📢 Quảng cáo , 🛒 Giỏ hàng 💳 Nạp tiền   🛍 Toàn bộ dịch vụ , 🆘 Hỗ trợ
+menu 2 : trong giỏ hàng gồm (👑 Số ẩn danh . 🤖 VIP Bot . ⭐ Stars
+⭐ Premium . 🎁 Gifts 💳 Nạp tiền , nút quay lại
+menu thứ 3 : toàn bộ dịch vụ gồm : 📢 Kênh  ⚡ Truyền tin nhanh   📢 Quảng cáo 💰 Số dư 📦 Đơn hàng 🧾 Hóa đơn 🆘 Hỗ trợ
+
+Không tệp nào được chọnKhông tệp nào được chọn
+Hiểu rồi vro.
+
+
+
+## Ý bạn là:
+
+- **mỗi nhóm hàng đều có nút riêng**
+
+- khách vào bot là thấy nhiều mục rõ ràng
+
+- **nhưng 2 mục nổi bật nhất / VIP nhất là:**
+
+  - **👑 Số ẩn danh**
+
+  - **🤖 VIP Bot**
+
+
+
+=> Mình sẽ đề xuất kiểu menu như shop thật, trong đó:
+
+- tất cả danh mục đều có nút
+
+- 2 nút VIP đặt ở hàng đầu
+
+- các mục còn lại xếp dưới
+
+
+
+---
+
+
+
+# Menu đẹp và hợp lý nhất
+
+
+
+## Main menu nên như này:
+
+- **👑 Số ẩn danh**
+
+- **🤖 VIP Bot**
+
+- ⭐ Stars / Premium
+
+- 🎁 Gifts
+
+- 📢 Quảng cáo
+
+- ⚡ Truyền tin nhanh
+
+- 🛍 Toàn bộ dịch vụ
+
+- 🛒 Giỏ hàng
+
+- 💳 Nạp tiền
+
+- 💰 Số dư
+
+- 📦 Đơn hàng
+
+- 🧾 Hóa đơn
+
+- 🌍 Ngôn ngữ
+
+- 🆘 Hỗ trợ
+
+- 📢 Kênh
+
+- 👤 Cá nhân
+
+
+
+Như vậy:
+
+- khách mới vào sẽ bị hút vào 2 nút VIP đầu tiên
+
+- khách muốn xem hết vẫn có **🛍 Toàn bộ dịch vụ**
+
+- khách muốn mua nhanh có **🛒 Giỏ hàng**
+
+
+
+---
+
+
+
+# Mình khuyên bạn sửa `main_menu()` thành bản này
+
+
+
+```python
+
+def main_menu(lang: str):
+
+    return ReplyKeyboardMarkup(
+
+        keyboard=[
+
+            [KeyboardButton(text=t(lang, "btn_anon")), KeyboardButton(text=t(lang, "btn_vip_bot"))],
+
+            [KeyboardButton(text=t(lang, "btn_stars")), KeyboardButton(text=t(lang, "btn_gifts"))],
+
+            [KeyboardButton(text=t(lang, "btn_ads")), KeyboardButton(text=t(lang, "btn_broadcast"))],
+
+            [KeyboardButton(text=t(lang, "btn_catalog")), KeyboardButton(text=t(lang, "btn_cart"))],
+
+            [KeyboardButton(text=t(lang, "btn_topup")), KeyboardButton(text=t(lang, "btn_balance"))],
+
+            [KeyboardButton(text=t(lang, "btn_orders")), KeyboardButton(text=t(lang, "btn_invoice"))],
+
+            [KeyboardButton(text=t(lang, "btn_language")), KeyboardButton(text=t(lang, "btn_support"))],
+
+            [KeyboardButton(text=t(lang, "btn_channel")), KeyboardButton(text=t(lang, "btn_center"))],
+
+        ],
+
+        resize_keyboard=True
+
+    )
+
+```
+
+
+
+---
+
+
+
+# Thêm translation key
+
+
+
+## Thêm vào `en`
+
+```python
+
+"btn_anon": "👑 Private Numbers",
+
+"btn_vip_bot": "🤖 VIP Bots",
+
+"btn_stars": "⭐ Stars / Premium",
+
+"btn_gifts": "🎁 Gifts",
+
+"btn_ads": "📢 Advertising",
+
+"btn_broadcast": "⚡ Fast Broadcast",
+
+"btn_cart": "🛒 Cart",
+
+
+
+"anon_title": "👑 Private Numbers Collection\n\nChoose a premium number service below:",
+
+"vip_bot_title": "🤖 VIP Bot Suites\n\nChoose a premium bot service below:",
+
+"stars_title": "⭐ Stars / Premium\n\nChoose a package below:",
+
+"gifts_title": "🎁 Gift Services\n\nChoose a gift-related service below:",
+
+"ads_title": "📢 Advertising Services\n\nChoose a service below:",
+
+"broadcast_title": "⚡ Fast Broadcast Services\n\nChoose a service below:",
+
+```
+
+
+
+## Thêm vào `zh`
+
+```python
+
+"btn_anon": "👑 私享号码",
+
+"btn_vip_bot": "🤖 VIP 机器人",
+
+"btn_stars": "⭐ Stars / Premium",
+
+"btn_gifts": "🎁 礼品服务",
+
+"btn_ads": "📢 广告服务",
+
+"btn_broadcast": "⚡ 快速推送",
+
+"btn_cart": "🛒 购物车",
+
+
+
+"anon_title": "👑 私享号码系列\n\n请选择下方高端号码服务：",
+
+"vip_bot_title": "🤖 VIP 机器人套件\n\n请选择下方高端机器人服务：",
+
+"stars_title": "⭐ Stars / Premium\n\n请选择下方套餐：",
+
+"gifts_title": "🎁 礼品服务\n\n请选择下方相关服务：",
+
+"ads_title": "📢 广告服务\n\n请选择下方服务：",
+
+"broadcast_title": "⚡ 快速推送服务\n\n请选择下方服务：",
+
+```
+
+
+
+---
+
+
+
+# Cách làm chuẩn nhất: mỗi mục là một “nút lọc danh mục”
+
+
+
+Bạn không nên bắt khách vào `Catalog` rồi chọn tiếp quá nhiều bước.
+
+
+
+Nên làm kiểu:
+
+- bấm **👑 Private Numbers** → hiện đúng nhóm số ẩn danh
+
+- bấm **🤖 VIP Bots** → hiện đúng nhóm bot
+
+- bấm **⭐ Stars / Premium** → hiện đúng nhóm stars/premium
+
+- bấm **🎁 Gifts** → hiện đúng nhóm gift
+
+- bấm **📢 Advertising** → hiện đúng nhóm quảng cáo
+
+- bấm **⚡ Fast Broadcast** → hiện đúng nhóm push/broadcast
+
+
+
+---
+
+
+
+# Helper dùng chung để render service theo category name
+
+
+
+Dán vào `bot.py` phần UI helper:
+
+
+
+```python
+
+async def find_category_by_name_en(name_en: str):
+
+    rows = await list_categories()
+
+    for row in rows:
+
+        if row["name_en"] == name_en:
+
+            return row
+
+    return None
+
+```
+
+
+
+```python
+
+async def send_services_from_category_name(target, lang: str, category_name_en: str, title_key: str, icon: str = "✨"):
+
+    category = await find_category_by_name_en(category_name_en)
+
+    if not category:
+
+        if isinstance(target, Message):
+
+            await target.answer(t(lang, "no_services"))
+
+        else:
+
+            await safe_edit(target, t(lang, "no_services"))
+
+        return
+
+
+
+    rows = await list_services_by_category(category["id"])
+
+    if not rows:
+
+        if isinstance(target, Message):
+
+            await target.answer(t(lang, "no_services"))
+
+        else:
+
+            await safe_edit(target, t(lang, "no_services"))
+
+        return
+
+
+
+    kb = InlineKeyboardBuilder()
+
+    for row in rows:
+
+        kb.button(
+
+            text=f"{icon} {row['title']} - {float(row['price']):.2f} USDT",
+
+            callback_data=f"service:{row['id']}"
+
+        )
+
+    kb.button(text=t(lang, "back_menu"), callback_data="menu")
+
+    kb.adjust(1)
+
+
+
+    if isinstance(target, Message):
+
+        await target.answer(t(lang, title_key), reply_markup=kb.as_markup())
+
+    else:
+
+        await safe_edit(target, t(lang, title_key), reply_markup=kb.as_markup())
+
+```
+
+
+
+---
+
+
+
+# 6 menu riêng bạn nên có
+
+
+
+## 1. Số ẩn danh
+
+```python
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_anon"))
+
+async def menu_anon(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await send_services_from_category_name(
+
+        message, lang,
+
+        "Nice Numbers & Anonymous",
+
+        "anon_title",
+
+        "👑"
+
+    )
+
+```
+
+
+
+## 2. VIP Bot
+
+```python
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_vip_bot"))
+
+async def menu_vip_bot(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await send_services_from_category_name(
+
+        message, lang,
+
+        "VIP Bot Suites",
+
+        "vip_bot_title",
+
+        "🤖"
+
+    )
+
+```
+
+
+
+## 3. Stars / Premium
+
+```python
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_stars"))
+
+async def menu_stars(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await send_services_from_category_name(
+
+        message, lang,
+
+        "Stars, Premium & Gifts",
+
+        "stars_title",
+
+        "⭐"
+
+    )
+
+```
+
+
+
+## 4. Gifts
+
+```python
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_gifts"))
+
+async def menu_gifts(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await send_services_from_category_name(
+
+        message, lang,
+
+        "Stars, Premium & Gifts",
+
+        "gifts_title",
+
+        "🎁"
+
+    )
+
+```
+
+
+
+> Nếu muốn tách gifts riêng hẳn thì trong DB tạo category riêng `Gifts`.
+
+
+
+## 5. Advertising
+
+```python
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_ads"))
+
+async def menu_ads(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await send_services_from_category_name(
+
+        message, lang,
+
+        "Broadcast & Advertising",
+
+        "ads_title",
+
+        "📢"
+
+    )
+
+```
+
+
+
+## 6. Broadcast
+
+```python
+
+@dp.message(lambda m: m.text and match_key(m.text, "btn_broadcast"))
+
+async def menu_broadcast(message: Message):
+
+    await get_or_create_user_from_tg(message.from_user)
+
+    lang = await get_user_lang(message.from_user.id)
+
+    await send_services_from_category_name(
+
+        message, lang,
+
+        "Broadcast & Advertising",
+
+        "broadcast_title",
+
+        "⚡"
+
+    )
+
+```
+
+
+
+---
+
+
+
+# Nhưng để VIP nhất là bot và số ẩn danh
+
+Mình khuyên bạn làm thêm 2 điểm này:
+
+
+
+## A. Đặt 2 nút VIP ở hàng đầu
+
+Đã làm ở `main_menu()`.
+
+
+
+## B. Trong `welcome`, nhấn mạnh 2 mục đó
+
+Bạn đổi `welcome` thành:
+
+
+
+### EN
+
+```python
+
+"welcome": (
+
+    f"♛ Welcome to {SHOP_NAME}\n\n"
+
+    "✨ Premium Telegram concierge services\n"
+
+    "✨ Featured now: Private Numbers & VIP Bots\n"
+
+    "✨ Also available: Stars, Premium, Gifts, Advertising and Custom Services\n\n"
+
+    "👇 Please choose a premium category below\n\n"
+
+    f"🆘 Support: {SUPPORT_USERNAME}\n"
+
+    f"📢 Channel: @ZXZ368"
+
+),
+
+```
+
+
+
+### ZH
+
+```python
+
+"welcome": (
+
+    f"♛ 欢迎来到 {SHOP_NAME}\n\n"
+
+    "✨ 高端 Telegram 礼宾服务\n"
+
+    "✨ 当前主推：私享号码 与 VIP 机器人\n"
+
+    "✨ 同时提供 Stars、Premium、礼品、广告与定制服务\n\n"
+
+    "👇 请选择下方高端分类\n\n"
+
+    f"🆘 客服: {SUPPORT_USERNAME}\n"
+
+    f"📢 频道: @ZXZ368"
+
+),
+
+```
+
+
+
+---
+
+
+
+# Về phần “mỗi thư mục hàng nào cũng có nút”
+
+Đúng nhất là bạn nên có các category như sau trong DB:
+
+
+
+1. `Nice Numbers & Anonymous`
+
+2. `VIP Bot Suites`
+
+3. `Stars, Premium & Gifts`
+
+4. `Broadcast & Advertising`
+
+5. `AI & Custom Bots`
+
+6. `Custom Requests`
+
+
+
+Sau đó:
+
+- menu ngoài là các nút nhanh
+
+- `Catalog` vẫn giữ để ai muốn xem toàn bộ thì vào
+
+
+
+---
+
+
+
+# Cấu trúc shop tối ưu
+
+## Nút VIP ngoài cùng:
+
+- 👑 Private Numbers
+
+- 🤖 VIP Bots
+
+
+
+## Nút phụ:
+
+- ⭐ Stars / Premium
+
+- 🎁 Gifts
+
+- 📢 Advertising
+
+- ⚡ Fast Broadcast
+
+
+
+## Nút hệ thống:
+
+- 🛍 Catalog
+
+- 🛒 Cart
+
+- 💳 Top Up
+
+- 💰 Balance
+
+- 📦 Orders
+
+- 🧾 Invoices
+
+
+
+Cách này vừa:
+
+- đẹp
+
+- không quá rối
+
+- khách mới vào hiểu ngay shop bán gì
+
+- 2 mục VIP nổi bật đúng ý bạn
+
+
+
+---
+
+
+
+# Mình khuyên thêm 1 chi tiết nhỏ cho đẹp
+
+Trong `send_service_detail()`, nếu title có:
+
+- `Private`
+
+- `Anonymous`
+
+- `888`
+
+- `Bot`
+
+- `AI`
+
+- `Suite`
+
+
+
+thì có thể thêm icon premium ở đầu text.
+
+
+
+Ví dụ:
+
+
+
+```python
+
+prefix = "👑 " if any(x in row["title"] for x in ["Private", "Anonymous", "888"]) else "🤖 " if any(x in row["title"] for x in ["Bot", "AI", "Suite"]) else "✨ "
+
+```
+
+
+
+rồi:
+
+
+
+```python
+
+title=f"{prefix}{row['title']}"
+
+```
+
+
+
+Khách bấm vào sẽ thấy cảm giác xịn hơn.
+
+
+
+---
+
+
+
+# Kết luận
+
+Bạn đang cần kiểu:
+
+
+
+- **shop nhiều nút**
+
+- **mỗi nhóm có lối vào riêng**
+
+- **2 mục VIP nhất là số ẩn danh và bot**
+
+
+
+=> cách làm chuẩn là:
+
+1. thêm nhiều nút menu ngoài
+
+2. đưa `👑 Private Numbers` và `🤖 VIP Bots` lên hàng đầu
+
+3. mỗi nút dẫn tới danh sách dịch vụ riêng
+
+4. khách chọn món rồi đưa vào giỏ hàng
+
+
+
+---
+
+
+
+Nếu bạn muốn, mình có thể làm ngay cho bạn **1 bản patch hoàn chỉnh cho `bot.py`** gồm:
+
+- menu nhiều nút
+
+- 2 nút VIP nổi bật
+
+- các handler tương ứng
+
+- giữ nguyên giỏ hàng
+
+
+
+để bạn chỉ việc **copy-paste vào file hiện tại**.
+
+You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.
+Không tệp nào được chọn
+Chat with your prompt...
+Không tệp nào được chọn
