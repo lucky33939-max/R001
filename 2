@@ -1,0 +1,401 @@
+Được vro. Nếu bạn muốn **“số ẩn danh”** và **“bot”** nhìn **VIP, sang, premium** hơn, thì mình khuyên không để tên kiểu quá thường như:
+
+- Anonymous Number Rental - Standard
+- Group Management Bot Rental
+
+Mà đổi sang kiểu **luxury / concierge / private service** như shop cao cấp.
+
+---
+
+# 1) Gợi ý tên dịch vụ VIP hơn
+
+## A. Nhóm “Số ẩn danh / số đẹp”
+Thay thành các tên kiểu này:
+
+### Gói thường nhưng vẫn sang
+- **Private Number Access - 1 Month**
+- **Elite Anonymous Number - 1 Month**
+- **Premium Anonymous Number Access**
+
+### Gói VIP hơn
+- **Anonymous Number VIP Edition**
+- **Elite +888 Anonymous Number**
+- **Royal +888 Private Number**
+- **Prestige Anonymous Number Collection**
+- **Signature Private Number Access**
+
+---
+
+## B. Nhóm “Bot”
+Thay thành kiểu cao cấp hơn:
+
+### Bot quản lý
+- **Elite Management Bot Suite**
+- **Private Group Control Bot**
+- **Royal Community Manager Bot**
+
+### Bot AI
+- **AI Concierge Bot**
+- **Executive AI Assistant Bot**
+- **VIP AI Multi-Tool Suite**
+- **Prestige AI Business Bot**
+
+### Bot phiên dịch
+- **Global Translator Bot Pro**
+- **VIP Translator Bot Suite**
+
+### Bot theo yêu cầu
+- **Private Custom Bot Development**
+- **Concierge Bot Development**
+- **Signature Telegram Bot Solution**
+
+---
+
+# 2) Mình đề xuất bản tên dịch vụ mới rất hợp kiểu shop VIP
+
+Bạn thay các service trong `seed_sample_data()` bằng bản này cho đẹp hơn.
+
+---
+
+## Thay riêng phần dịch vụ “số ẩn danh” và “bot” bằng bản sau
+
+```python
+async def seed_sample_data():
+    categories = [
+        ("Nice Numbers & Anonymous", "靓号与匿名号码", 1),
+        ("Stars, Premium & Gifts", "星星、Premium 与礼品", 2),
+        ("Broadcast & Advertising", "消息推送与广告", 3),
+        ("VIP Bot Suites", "VIP 机器人套件", 4),
+        ("AI & Custom Bots", "AI 与定制机器人", 5),
+        ("Custom Requests", "定制需求", 6),
+    ]
+
+    services = [
+        # =========================
+        # NICE NUMBERS & ANONYMOUS
+        # =========================
+        {
+            "category": "Nice Numbers & Anonymous",
+            "title": "Prestige Number Selection",
+            "price": 199,
+            "badge": "PRESTIGE",
+            "desc_en": "Premium concierge support for selecting memorable, rare, or prestige Telegram number options subject to platform availability.",
+            "desc_zh": "高级专属协助服务，帮助选择好记、稀有或高端 Telegram 号码，具体以平台可用情况为准。",
+            "featured": True,
+        },
+        {
+            "category": "Nice Numbers & Anonymous",
+            "title": "Elite Anonymous Number Access - 1 Month",
+            "price": 100,
+            "badge": "ELITE",
+            "desc_en": "Elite 1-month private support package for lawful anonymous number access, onboarding assistance, and premium setup guidance.",
+            "desc_zh": "Elite 1 个月专属服务套餐，提供合法匿名号码相关协助、开通支持与高级配置指导。",
+            "featured": True,
+        },
+        {
+            "category": "Nice Numbers & Anonymous",
+            "title": "Royal +888 Private Number - 1 Month",
+            "price": 888,
+            "badge": "ROYAL",
+            "desc_en": "Royal-tier +888 private number support package with premium priority handling, VIP guidance, and exclusive setup assistance.",
+            "desc_zh": "Royal 级别 +888 私密号码支持套餐，提供优先处理、VIP 指导与专属配置协助。",
+            "featured": True,
+        },
+
+        # =========================
+        # STARS, PREMIUM & GIFTS
+        # =========================
+        {
+            "category": "Stars, Premium & Gifts",
+            "title": "Telegram Stars - 500",
+            "price": 9.99,
+            "badge": "STARS",
+            "desc_en": "Support package for Telegram Stars related purchase assistance.",
+            "desc_zh": "Telegram Stars 相关购买协助服务。",
+            "featured": True,
+        },
+        {
+            "category": "Stars, Premium & Gifts",
+            "title": "Telegram Premium VIP - 1 Month",
+            "price": 11.99,
+            "badge": "VIP",
+            "desc_en": "1-month Telegram Premium VIP support package.",
+            "desc_zh": "Telegram Premium VIP 1 个月支持套餐。",
+            "featured": True,
+        },
+        {
+            "category": "Stars, Premium & Gifts",
+            "title": "Telegram Gift Concierge",
+            "price": 25,
+            "badge": "GIFT",
+            "desc_en": "Concierge assistance for valid premium gift related Telegram requests.",
+            "desc_zh": "针对合法 Telegram 高级礼品需求提供礼宾式支持服务。",
+            "featured": False,
+        },
+
+        # =========================
+        # BROADCAST & ADVERTISING
+        # =========================
+        {
+            "category": "Broadcast & Advertising",
+            "title": "Fast Broadcast Setup (Opt-in Only)",
+            "price": 39,
+            "badge": "FAST",
+            "desc_en": "Fast message broadcast setup for your own opted-in audience, members, or subscribers only.",
+            "desc_zh": "快速消息推送配置，仅适用于您自己的已订阅用户、成员或受众。",
+            "featured": True,
+        },
+        {
+            "category": "Broadcast & Advertising",
+            "title": "Premium Advertising Placement",
+            "price": 59,
+            "badge": "ADS",
+            "desc_en": "Lawful advertising support for channels, communities, and approved offers.",
+            "desc_zh": "面向频道、社群及合规项目的广告支持服务。",
+            "featured": True,
+        },
+
+        # =========================
+        # VIP BOT SUITES
+        # =========================
+        {
+            "category": "VIP Bot Suites",
+            "title": "Elite Management Bot Suite",
+            "price": 79,
+            "badge": "ELITE BOT",
+            "desc_en": "Premium management bot suite for groups and communities with moderation, welcome flow, rules, anti-spam tools, and control features.",
+            "desc_zh": "高级管理机器人套件，适用于群组与社群，支持审核、欢迎流程、规则、防垃圾与管理控制功能。",
+            "featured": True,
+        },
+        {
+            "category": "VIP Bot Suites",
+            "title": "Private Calculator Bot Pro",
+            "price": 49,
+            "badge": "PRO BOT",
+            "desc_en": "Professional calculator and utility bot with quick command support and practical tools.",
+            "desc_zh": "专业计算与工具机器人，支持快捷命令与实用功能。",
+            "featured": False,
+        },
+        {
+            "category": "VIP Bot Suites",
+            "title": "Global Translator Bot Suite",
+            "price": 69,
+            "badge": "LANG VIP",
+            "desc_en": "VIP multi-language translator bot suite for support, communities, and international communication workflows.",
+            "desc_zh": "VIP 多语言翻译机器人套件，适用于客服、社群与国际沟通场景。",
+            "featured": True,
+        },
+
+        # =========================
+        # AI & CUSTOM BOTS
+        # =========================
+        {
+            "category": "AI & Custom Bots",
+            "title": "AI Concierge Bot",
+            "price": 129,
+            "badge": "AI VIP",
+            "desc_en": "High-end AI concierge bot for customer support, FAQ handling, guided flows, and intelligent response automation.",
+            "desc_zh": "高端 AI 礼宾机器人，适用于客服、问答、引导流程与智能回复自动化。",
+            "featured": True,
+        },
+        {
+            "category": "AI & Custom Bots",
+            "title": "Executive AI Multi-Tool Suite",
+            "price": 199,
+            "badge": "EXECUTIVE",
+            "desc_en": "Executive-level AI bot package with routing, smart replies, utility tools, and workflow assistance.",
+            "desc_zh": "行政级 AI 机器人套餐，支持分流、智能回复、工具集与流程辅助。",
+            "featured": True,
+        },
+        {
+            "category": "AI & Custom Bots",
+            "title": "Signature Custom Bot Development",
+            "price": 299,
+            "badge": "SIGNATURE",
+            "desc_en": "Signature-tier Telegram bot development tailored to your exact workflow and business requirements.",
+            "desc_zh": "Signature 级别 Telegram 机器人定制开发，完全按您的流程与业务需求打造。",
+            "featured": True,
+        },
+
+        # =========================
+        # CUSTOM REQUESTS
+        # =========================
+        {
+            "category": "Custom Requests",
+            "title": "Concierge Telegram Solution",
+            "price": 399,
+            "badge": "CONCIERGE",
+            "desc_en": "Private consultation and tailored Telegram solution planning for premium clients.",
+            "desc_zh": "为高端客户提供私享咨询与定制 Telegram 解决方案规划。",
+            "featured": True,
+        },
+    ]
+
+    async with db_pool.acquire() as conn:
+        category_map = {}
+
+        for name_en, name_zh, sort_order in categories:
+            row = await conn.fetchrow(
+                "SELECT id FROM categories WHERE name_en = $1 LIMIT 1",
+                name_en
+            )
+            if not row:
+                row = await conn.fetchrow("""
+                    INSERT INTO categories (name_en, name_zh, sort_order, active)
+                    VALUES ($1, $2, $3, TRUE)
+                    RETURNING id
+                """, name_en, name_zh, sort_order)
+
+            category_map[name_en] = row["id"]
+
+        for item in services:
+            exists = await conn.fetchrow(
+                "SELECT id FROM services WHERE title = $1 LIMIT 1",
+                item["title"]
+            )
+            if not exists:
+                await conn.execute("""
+                    INSERT INTO services
+                    (category_id, title, price, badge, desc_en, desc_zh, featured, active)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
+                """,
+                    category_map[item["category"]],
+                    item["title"],
+                    item["price"],
+                    item["badge"],
+                    item["desc_en"],
+                    item["desc_zh"],
+                    item["featured"]
+                )
+```
+
+---
+
+# 3) Nếu muốn “VIP” hơn nữa ở giao diện
+Bạn có thể đổi luôn text chào mừng.
+
+## Thay `welcome` trong translations thành kiểu sang hơn
+
+### EN
+```python
+"welcome": (
+    f"♛ Welcome to {SHOP_NAME}\n\n"
+    "✨ Premium Telegram digital concierge\n"
+    "✨ Private support • VIP handling • curated services\n"
+    "✨ Selected numbers, Premium packages, AI bots and custom solutions\n\n"
+    "🎁 Featured offers are now available\n"
+    "👇 Please choose a service below\n\n"
+    f"🆘 Support: {SUPPORT_USERNAME}\n"
+    f"📢 Channel: @ZXZ368"
+),
+```
+
+### ZH
+```python
+"welcome": (
+    f"♛ 欢迎来到 {SHOP_NAME}\n\n"
+    "✨ 高端 Telegram 数字礼宾服务\n"
+    "✨ 专属支持 • VIP 处理 • 精选服务\n"
+    "✨ 提供靓号、Premium 套餐、AI 机器人与定制方案\n\n"
+    "🎁 精选优惠现已开启\n"
+    "👇 请选择下方服务\n\n"
+    f"🆘 客服: {SUPPORT_USERNAME}\n"
+    f"📢 频道: @ZXZ368"
+),
+```
+
+---
+
+# 4) Gợi ý badge nhìn sang hơn
+Bạn đang dùng badge kiểu `HOT`, `VIP`, `AI`.
+
+Muốn shop trông cao cấp hơn thì dùng bộ này:
+
+- `ELITE`
+- `ROYAL`
+- `PRESTIGE`
+- `SIGNATURE`
+- `EXECUTIVE`
+- `CONCIERGE`
+- `AI VIP`
+- `ELITE BOT`
+
+---
+
+# 5) Nếu bạn muốn đúng kiểu “giỏ hàng VIP”
+Mình còn có thể sửa tiếp để khi khách vào cart sẽ hiển thị kiểu sang hơn như:
+
+### Ví dụ text cart:
+```python
+"cart_title": "🛒 VIP Shopping Cart\n\n"
+"cart_total": "\n💎 Grand Total: {total:.2f} USDT"
+```
+
+Hoặc tiếng Trung:
+```python
+"cart_title": "🛒 VIP 购物车\n\n"
+"cart_total": "\n💎 尊享合计: {total:.2f} USDT"
+```
+
+---
+
+# 6) Cách áp dụng
+## Nếu bạn đã có `seed_sample_data()` cũ
+Có 2 cách:
+
+### Cách A — thêm mới
+Chạy `/seed` sau khi thay hàm  
+=> sẽ thêm service mới chưa có.
+
+### Cách B — muốn sạch và đồng bộ
+Xóa data cũ trong `services` và `categories`, rồi seed lại:
+
+```sql
+DELETE FROM orders;
+DELETE FROM cart_items;
+DELETE FROM services;
+DELETE FROM categories;
+```
+
+Sau đó vào bot:
+```bash
+/seed
+```
+
+---
+
+# 7) Mình đề xuất combo VIP đẹp nhất cho bạn
+Nếu muốn nhìn rất “đắt tiền”, mình chốt 2 nhóm như này:
+
+## Số ẩn danh
+- Prestige Number Selection
+- Elite Anonymous Number Access - 1 Month
+- Royal +888 Private Number - 1 Month
+
+## Bot
+- Elite Management Bot Suite
+- Global Translator Bot Suite
+- AI Concierge Bot
+- Executive AI Multi-Tool Suite
+- Signature Custom Bot Development
+
+Bộ này nhìn **rất sang**, hợp kiểu shop “至尊 / Royal / Elite”.
+
+---
+
+Nếu bạn muốn, bước tiếp theo mình sẽ làm luôn cho bạn:
+
+## **bản `seed_sample_data()` final siêu VIP**
+bao gồm:
+- số đẹp
+- số ẩn danh
+- +888
+- stars
+- premium
+- gifts
+- quảng cáo
+- bot VIP
+- AI bot VIP
+- custom VIP
+
+và mình sẽ format **đồng bộ hoàn toàn** với shop name `♛『 至尊机甲 』`.
